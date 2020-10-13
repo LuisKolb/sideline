@@ -4,11 +4,9 @@ Name: Sideline
 Main: sideline.js
 Icon: icon.png
 Link: README.md
-Description: TODO
+Description: Focus on a main narrative and hide secondary narratives on the side.
 Parameters:
-- name: thisextension.my_config_value
-  description: Number of dupers to create
-  input_type: number
-  min: -1
-  step: 1
-  default: 100
+- name: sideline.hide_automatic
+  description: Hide marked cells automatically upon opening the Notebook
+  input_type: checkbox
+  default: true

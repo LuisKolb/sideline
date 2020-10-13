@@ -6,66 +6,81 @@ define([
     Jupyter,
 ) {
 
-    var load_css = function (name) {
-        var link = document.createElement("link");
-        link.type = "text/css";
-        link.rel = "stylesheet";
-        link.href = requirejs.toUrl(name);
-        document.getElementsByTagName("head")[0].appendChild(link);
+    // hacky way to add custom css styles, didnt get it to work another way so far
+    var load_css = function () {
+        var style = document.createElement("style");
+        style.type = "text/css"
+        style.innerHTML = "\n"
+            + ".sideline-active {box-shadow: inset 0px 0px 3px 3px rgba(15,160,196,0.75)}"
+            + "\n";
+        document.head.appendChild(style);
     };
 
     // load the extension
     function load_ipython_extension() {
 
-        // todo: css not being uploaded?
-        console.log("[sideline] Loading sideline.css");
-        load_css('./sideline.css')
+        //console.log("[sideline] Loading sideline.css");
+        //load_css('./sideline.css')
+        load_css();
 
-        let is_active = false;
-        let active_button;
+        // initial state
+        let is_screen_split = false;
 
-        function toggle_buttons() {
-            if (!is_active) {
-                let i = 0;
-                $('.out_prompt_overlay').after(function () {
-                    if ($(this).next('.output').html()) {
-                        i += 1;
-                        return '<button id="btn-' + i + '" style="position:absolute" class="btn btn-default"><i class="fa fa-thumb-tack" aria-hidden="true"></i></button>';
-                    } else {
-                        // empty cells, for example, will not have any body, so no button should be inserted
-                        return '';
-                    }
-                });
-            } else {
-                $('[id^=btn-]').remove();
-            }
-
+        // add buttons to outputs
+        function add_buttons() {
+            let i = 0;
+            $('.input').append(function () {
+                if (get_first_line($(this)) == "​") {
+                    // no button should be added for empty code cells
+                    return ('');
+                } else if (get_first_line($(this)).substring(0, 17) == "#sideline-disable") {
+                    // disable button with a comment
+                    return '';
+                } else if (get_first_line($(this)).substring(0, 17) == "#sideline-enable") {
+                    // todo: behaviour if comment enables some functionality
+                    return '<button style="position:absolute" class="btn btn-default sideline-btn"><i class="fa fa-thumb-tack" aria-hidden="true"></i></button>';
+                } else {
+                    return '<button style="position:absolute" class="btn btn-default sideline-btn"><i class="fa fa-thumb-tack" aria-hidden="true"></i></button>';
+                }
+            });
         }
 
-        function shrink_nb_width() {
+        // remove buttons from outputs
+        function remove_buttons() {
+            $('#sideline-button').remove();
+        }
+
+        /**
+         * get first line of code text from input cell
+         * 
+         * @param {*} thisObj needs to be a $(this) of $('.input')
+         */
+        function get_first_line(thisObj) {
+            return thisObj.find('.CodeMirror-line').first().children().first().text();
+        }
+
+        // split the screen to make space for pinned elements on the side
+        function split_screen() {
+            // todo: use classes instead of style
             $('#notebook').css({ 'display': 'flex' })
             $('#notebook-container').css({ 'width': '50vw', 'margin-left': '3vw', 'margin-right': '3vw' });
+            //init_side_container()
+            is_screen_split = true;
         }
 
+        // reset the layout to the default
         function reset_nb_width() {
+            // todo: update once split_screen() uses classes instead of style
+            $('#notebook').css({ 'display': '' })
             $('#notebook-container').css({ 'width': '', 'margin-left': '', 'margin-right': '', 'display': '' });
+            is_screen_split = false;
         }
 
-        function toggle_nb_width(is_active_saved) {
-            if (!is_active_saved) {
-                $('#notebook').css({ 'display': 'flex' })
-
-                $('#notebook-container').css({ 'width': '50vw', 'margin-left': '3vw', 'margin-right': '3vw' });
+        // reset layout if no cells repain pinned
+        function check_if_any_pinned() {
+            if ($('.sideline-pinned').length == 0) {
+                reset_nb_width();
             }
-            else {
-                $('#notebook-container').css({ 'width': '', 'margin-left': '', 'margin-right': '', 'display': '' });
-            }
-        }
-
-        // todo: fix me
-        function toggle_button_shadow(id) {
-            if (is_active) $(id).css({ 'box-shadow': 'inset 0px 0px 3px 3px rgba(15,160,196,0.75)' });
-            else $(id).css({ 'box-shadow': 'none' });
         }
 
         function popout_view(contents) {
@@ -90,19 +105,17 @@ define([
             });
         }
 
-        function pint_to_top_view(contents, prompt) {
+        function init_side_container() {
             // remove old output if it exists
             if ($('#side-container').length) $('#side-container').remove();
 
             // build container element
             $('#notebook-container').after('<div id="side-container" class="rendered_html">'
-                + (prompt ? prompt : '')
                 + '<div id="scrollable">'
-                + contents
                 + '</div></div>')
 
             // add css to prompt, if it exists
-            if (prompt) $('#side-container').find('.prompt.output_prompt').css({ 'text-align': 'left' });
+            //if (prompt) $('#side-container').find('.prompt.output_prompt').css({ 'text-align': 'left' });
 
             // add css to container
             $('#side-container').css({
@@ -123,56 +136,86 @@ define([
                 'max-height': '75vh',
             });
 
-            // todo: add button to unpin
-            $('#scrollable').before('<button id="unpin" style="position:absolute; top:1em; right:1em;">x</button>');
-            $('#unpin').click(function() {
+            // $('#scrollable').before('<button id="unpin" style="position:absolute; top:1em; right:1em;">x</button>');
+            $('#unpin').click(function () {
                 $('#side-container').remove();
                 reset_nb_width();
-                is_active = false;
+                is_screen_split = false;
             })
         }
 
-        toggle_buttons();
+        function pin_cell(cellObj) {
+            cellObj.css({
+                'width': '41vw',
+                'margin-right': '3vw',
+                'padding': '15px',
+                'background-color': '#fff',
+                'min-height': '0',
+                'box-shadow': '0px 0px 12px 1px rgba(87, 87, 87, 0.2)',
+                'position': 'absolute',
+                'right': '0',
+            });
+            cellObj.addClass('sideline-pinned');
+            cellObj.find('.sideline-btn').addClass('sideline-active')
+            cellObj.find('.sideline-btn').off('click')
+            cellObj.find('.sideline-btn').click(function () {
+                $(this).parent().parent().removeAttr('style'); // maybe use translateX() ?
+                $(this).parent().parent().removeClass('sideline-pinned');
+                $(this).removeClass('sideline-active')
+                check_if_any_pinned();
+                set_btn_onclick();
+            });
+        }
 
-        $('[id^=btn-]').click(function () {
-            // get sibling .output and find .output_subarea
-            var printContents = $(this).next('.output').find('.output_subarea').html();
-            var output_prompt = $(this).next('.output').find('.prompt.output_prompt').prop('outerHTML');
+        // set button onClick listeners
+        function set_btn_onclick() {
+            $('.sideline-btn').off('click')
+            $('.sideline-btn').click(function () {
 
-            //popout_view(printContents);
-            //side_to_side_view(printContents);
-            pint_to_top_view(printContents, output_prompt);
+                //var output_prompt = $(this).next('.output').find('.prompt.output_prompt').prop('outerHTML');
+                //var exec_order_number = output_prompt.replace(/^\D+|\D+$/g, "");
+                //console.log(exec_order_number);
 
-            if (is_active == false) {
-                shrink_nb_width();
-                is_active = true;
-            }
+                //popout_view(printContents);
+                //side_to_side_view(printContents);
 
-            // todo: hook if result is refreshed to refresh popout
-        });
+                if (is_screen_split == false) {
+                    split_screen();
+                }
+
+                pin_cell($(this).parent().parent());
+
+                // todo: hook if result is refreshed to refresh popout
+            });
+        }
+
+        // execute this code upon loading
+        add_buttons();
+        set_btn_onclick()
+
+
 
 
         $(window).resize(function () {
-            if (is_active) {
-                shrink_nb_width();
+            if (is_screen_split) {
+                split_screen();
             }
         });
 
-        var handler = function () {
-
-        };
-
-        var action = {
-            icon: 'fa-comment-o', // a font-awesome class used on buttons, etc
-            help: 'Activate Sideline',
-            help_index: 'zz',
-            handler: handler
-        };
-        var prefix = 'sideline';
-        var action_name = 'activate';
-
-        var full_action_name = Jupyter.actions.register(action, action_name, prefix); // returns 'sideline:activate'
-        Jupyter.toolbar.add_buttons_group([full_action_name]);
+        // todo: remove me
+        //
+        //var handler = function () {
+        //};
+        //var action = {
+        //    icon: 'fa-comment-o', // a font-awesome class used on buttons, etc
+        //    help: 'Activate Sideline',
+        //    help_index: 'zz',
+        //    handler: handler
+        //};
+        //var prefix = 'sideline';
+        //var action_name = 'activate';
+        //var full_action_name = Jupyter.actions.register(action, action_name, prefix); // returns 'sideline:activate'
+        //Jupyter.toolbar.add_buttons_group([full_action_name]);
     }
 
     return {

@@ -1,7 +1,7 @@
 This extension
 ==============
 
-A quick summary of what this nbextension does.
+Focus on a main narrative and hide secondary narratives on the side.
 
 Installation
 -----
