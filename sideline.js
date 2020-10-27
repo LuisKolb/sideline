@@ -45,6 +45,7 @@ define([
             });
         }
 
+        // todo: remove me
         // remove buttons from outputs
         function remove_buttons() {
             $('#sideline-button').remove();
@@ -62,9 +63,13 @@ define([
         // split the screen to make space for pinned elements on the side
         function split_screen() {
             // todo: use classes instead of style
-            $('#notebook').css({ 'display': 'flex' })
+            $('#notebook').css({ 'display': 'flex' });
             $('#notebook-container').css({ 'width': '50vw', 'margin-left': '3vw', 'margin-right': '3vw' });
-            //init_side_container()
+            if ($('#sideline-container').length) {
+                show_sideline_container();
+            } else {
+                insert_sideline_container();
+            }
             is_screen_split = true;
         }
 
@@ -73,115 +78,38 @@ define([
             // todo: update once split_screen() uses classes instead of style
             $('#notebook').css({ 'display': '' })
             $('#notebook-container').css({ 'width': '', 'margin-left': '', 'margin-right': '', 'display': '' });
+            hide_sideline_container();
             is_screen_split = false;
         }
 
-        // reset layout if no cells repain pinned
+        // reset layout if no cells remain pinned
         function check_if_any_pinned() {
             if ($('.sideline-pinned').length == 0) {
                 reset_nb_width();
             }
         }
-
-        function popout_view(contents) {
-            var myWindow = window.open("", "popup", "width=1000,height=600,scrollbars=yes,resizable=yes," +
-                "toolbar=no,directories=no,location=no,menubar=no,status=no,left=0,top=0");
-            var doc = myWindow.document;
-            doc.open();
-            doc.write(contents);
-            doc.close();
+        
+        // get height of the header to align items below
+        function get_header_height() {
+            return $('#header').height() + 'px';
         }
 
-        function side_to_side_view(contents) {
-            $('#notebook-container').after('<div id="side-container">' + contents + '</div>')
-            $('#side-container').css({
-                'width': '41vw',
-                'margin-right': '3vw',
-                'padding': '15px',
-                'background-color': '#fff',
-                'min-height': '0',
-                'box-shadow': '0px 0px 12px 1px rgba(87, 87, 87, 0.2)',
-                'height': 'fit-content'
-            });
-        }
-
-        function init_side_container() {
-            // remove old output if it exists
-            if ($('#side-container').length) $('#side-container').remove();
-
-            // build container element
-            $('#notebook-container').after('<div id="side-container" class="rendered_html">'
-                + '<div id="scrollable">'
-                + '</div></div>')
-
-            // add css to prompt, if it exists
-            //if (prompt) $('#side-container').find('.prompt.output_prompt').css({ 'text-align': 'left' });
-
-            // add css to container
-            $('#side-container').css({
-                'width': '41vw',
-                'margin-right': '3vw',
-                'padding': '15px',
-                'background-color': '#fff',
-                'min-height': '0',
-                'box-shadow': '0px 0px 12px 1px rgba(87, 87, 87, 0.2)',
-                'height': 'fit-content',
-                'position': 'fixed',
-                'right': '1vw',
-            });
-
-            // set the wrapper of the content to be scrollable if content is too long 
-            $('#scrollable').css({
-                'overflow': 'auto',
-                'max-height': '75vh',
-            });
-
-            // $('#scrollable').before('<button id="unpin" style="position:absolute; top:1em; right:1em;">x</button>');
-            $('#unpin').click(function () {
-                $('#side-container').remove();
-                reset_nb_width();
-                is_screen_split = false;
-            })
-        }
-
+        // pin cell to the sideline-container and apply styles
         function pin_cell(cellObj) {
-            cellObj.css({
-                'width': '41vw',
-                'margin-right': '3vw',
-                'padding': '15px',
-                'background-color': '#fff',
-                'min-height': '0',
-                'box-shadow': '0px 0px 12px 1px rgba(87, 87, 87, 0.2)',
-                'position': 'absolute',
-                'right': '0',
-            });
+            $('#sideline-container').append(cellObj)
             cellObj.addClass('sideline-pinned');
             cellObj.find('.sideline-btn').addClass('sideline-active')
-            cellObj.find('.sideline-btn').off('click')
-            cellObj.find('.sideline-btn').click(function () {
-                $(this).parent().parent().removeAttr('style'); // maybe use translateX() ?
-                $(this).parent().parent().removeClass('sideline-pinned');
-                $(this).removeClass('sideline-active')
-                check_if_any_pinned();
-                set_btn_onclick();
-            });
+            
+            set_unpin_listener(cellObj);
         }
 
-        // set button onClick listeners
-        function set_btn_onclick() {
+        /* button click-listeners */
+
+        // set click()-listeners to pin
+        function set_pin_listener() {
             $('.sideline-btn').off('click')
             $('.sideline-btn').click(function () {
-
-                //var output_prompt = $(this).next('.output').find('.prompt.output_prompt').prop('outerHTML');
-                //var exec_order_number = output_prompt.replace(/^\D+|\D+$/g, "");
-                //console.log(exec_order_number);
-
-                //popout_view(printContents);
-                //side_to_side_view(printContents);
-
-                if (is_screen_split == false) {
-                    split_screen();
-                }
+                if (is_screen_split == false) split_screen();
 
                 pin_cell($(this).parent().parent());
 
@@ -189,33 +117,79 @@ define([
             });
         }
 
+        // set click()-listeners to unpin and reset cell styles
+        function set_unpin_listener(cellObj) {
+            cellObj.find('.sideline-btn').off('click')
+            cellObj.find('.sideline-btn').click(function () {
+                $(this).parent().parent().removeAttr('style');
+                $(this).parent().parent().removeClass('sideline-pinned');
+                $(this).removeClass('sideline-active')
+                check_if_any_pinned();
+                set_pin_listener();
+            });
+        }
+
+        /* sideline-container methods */
+
+        function insert_sideline_container() {
+            $('#notebook-container').append('<div id="sideline-container"></div>');
+            $('#sideline-container').css({
+                'width': '41vw',
+                'margin-right': '3vw',
+                'margin-top': '20px',
+                'padding': '15px',
+                'background-color': '#fff',
+                'min-height': '0',
+                'box-shadow': '0px 0px 12px 1px rgba(87, 87, 87, 0.2)',
+                'position': 'fixed',
+                'right': '0',
+                'top': get_header_height(),
+                'overflow-y': 'auto',
+                'max-height': '80vh',
+            });
+        }
+
+        function hide_sideline_container() {
+            $('#sideline-container').hide()
+        }
+
+        function show_sideline_container() {
+            $('#sideline-container').show()
+        }
+
         // execute this code upon loading
         add_buttons();
-        set_btn_onclick()
+        set_pin_listener();
 
-
-
-
+        // add resize listener since jupyter will change some styles on resize
         $(window).resize(function () {
-            if (is_screen_split) {
-                split_screen();
-            }
+            if (is_screen_split) split_screen();
         });
 
-        // todo: remove me
-        //
-        //var handler = function () {
-        //};
-        //var action = {
-        //    icon: 'fa-comment-o', // a font-awesome class used on buttons, etc
-        //    help: 'Activate Sideline',
-        //    help_index: 'zz',
-        //    handler: handler
-        //};
-        //var prefix = 'sideline';
-        //var action_name = 'activate';
-        //var full_action_name = Jupyter.actions.register(action, action_name, prefix); // returns 'sideline:activate'
-        //Jupyter.toolbar.add_buttons_group([full_action_name]);
+        // pin selected cell to sideline-container
+        var handler = function () {
+            // if screen is not already split, do that
+            if (!is_screen_split) split_screen();
+            
+            // for all selected cells, pin them to the side
+            $('.selected').each(function () {
+                pin_cell($(this));
+            })
+        };
+
+        /* add and register jupyter actions */
+
+        var pin_action = {
+            icon: 'fa-thumb-tack', // a font-awesome class used on buttons, etc
+            help: 'Pin to Sideline',
+            help_index: 'zz',
+            handler: handler
+        };
+
+        var prefix = 'sideline';
+        var action_name = 'pin';
+        var full_action_name = Jupyter.actions.register(pin_action, action_name, prefix); // returns 'sideline:pin'
+        Jupyter.toolbar.add_buttons_group([full_action_name]);
     }
 
     return {
