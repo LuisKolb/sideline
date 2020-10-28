@@ -94,13 +94,36 @@ define([
             return $('#header').height() + 'px';
         }
 
+        // todo: get highest number in use and set it as i
+        let i = 1;
+        
         // pin cell to the sideline-container and apply styles
         function pin_cell(cellObj) {
+
+            let comment = "#sideline - subplot " + i + "\n";
+
+            var cm_original = Jupyter.notebook.get_selected_cell().code_mirror;
+
+            // prepend first line to mark cell as subplot if it isn't already marked
+            if (!cm_original.getLine(cm_original.firstLine()).startsWith("#sideline - subplot ")) {
+                cm_original.replaceRange(comment, CodeMirror.Pos(cm_original.firstLine()-1));
+            }
+
+            // insert a cell above the pinned cell, and set its value
+            Jupyter.notebook.insert_cell_above().code_mirror.setValue("#sideline - scroll to subplot " + i);
+            // todo: insert button to scroll to appropriate subplot
+
+
             $('#sideline-container').append(cellObj)
             cellObj.addClass('sideline-pinned');
+            cellObj.attr('id', 'subplot-'+i);
             cellObj.find('.sideline-btn').addClass('sideline-active')
             
             set_unpin_listener(cellObj);
+
+            // scroll to appropriate pinned cell
+            document.getElementById('subplot-'+i).scrollIntoView();
+            i += 1;
         }
 
         /* button click-listeners */
@@ -166,6 +189,8 @@ define([
             if (is_screen_split) split_screen();
         });
 
+        /* add and register jupyter actions */
+
         // pin selected cell to sideline-container
         var handler = function () {
             // if screen is not already split, do that
@@ -177,7 +202,11 @@ define([
             })
         };
 
-        /* add and register jupyter actions */
+        var scrollHandler = function() {
+            var arg = Jupyter.notebook.get_selected_cell().code_mirror.getLine(0);
+            console.log(arg.replace( /^\D+/g, ''))
+        }
+        
 
         var pin_action = {
             icon: 'fa-thumb-tack', // a font-awesome class used on buttons, etc
@@ -186,10 +215,18 @@ define([
             handler: handler
         };
 
+        var scroll_to = {
+            icon: 'fa-thumb-tack',
+            help: 'scroll to target',
+            help_index: 'zz',
+            handler: scrollHandler
+        }
+
         var prefix = 'sideline';
         var action_name = 'pin';
         var full_action_name = Jupyter.actions.register(pin_action, action_name, prefix); // returns 'sideline:pin'
-        Jupyter.toolbar.add_buttons_group([full_action_name]);
+        var scroll_action_name = Jupyter.actions.register(scroll_to, 'scroll', prefix); // returns 'sideline:pin'
+        Jupyter.toolbar.add_buttons_group([full_action_name, scroll_action_name]);
     }
 
     return {
