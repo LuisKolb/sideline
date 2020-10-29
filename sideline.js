@@ -36,14 +36,37 @@ define([
                 } else if (get_first_line($(this)).substring(0, 17) == "#sideline-disable") {
                     // disable button with a comment
                     return '';
-                } else if (get_first_line($(this)).substring(0, 17) == "#sideline-enable") {
-                    // todo: behaviour if comment enables some functionality
-                    return '<button style="position:absolute" class="btn btn-default sideline-btn"><i class="fa fa-thumb-tack" aria-hidden="true"></i></button>';
+                } else if (get_first_line($(this)).startsWith("#sideline - scroll to subplot ")) {
+                    var arg = Jupyter.notebook.get_selected_cell().code_mirror.getLine(0).replace( /^\D+/g, '');
+                    return '<button id="sideline-goto-'+arg+'" style="position:absolute" class="btn btn-default sideline-btn"><i class="fa fa-thumb-tack" aria-hidden="true"></i></button>';
                 } else {
                     return '<button style="position:absolute" class="btn btn-default sideline-btn"><i class="fa fa-thumb-tack" aria-hidden="true"></i></button>';
                 }
             });
         }
+
+        function add_scroll_buttons() {
+            // todo: refactor this code to use Jupyter.notebook stuff instead of jquery, also only call once when pinned
+
+            // add buttons
+            $('.input').append(function () {
+                if (get_first_line($(this)).startsWith("#sideline - scroll to subplot ")) {
+                    var arg = get_first_line($(this)).replace( /^\D+/g, '');
+                    return '<button id="sideline-goto-'+arg+'" style="position:absolute" class="btn btn-default sideline-btn"><i class="fa fa-thumb-tack" aria-hidden="true"></i></button>';
+                } 
+            });
+            // set click()-listeners
+            $('.input').each(function () {
+                if (get_first_line($(this)).startsWith("#sideline - scroll to subplot ")) {
+                    var arg = get_first_line($(this)).replace( /^\D+/g, '');
+                    $(this).find('[id^="sideline-goto-"]').click(function () {
+                        document.getElementById('subplot-'+arg).scrollIntoView();
+                    });
+                }
+            });
+        }
+
+        // todo: handle unpinning and all that
 
         // todo: remove me
         // remove buttons from outputs
@@ -123,6 +146,8 @@ define([
 
             // scroll to appropriate pinned cell
             document.getElementById('subplot-'+i).scrollIntoView();
+
+            add_scroll_buttons();
             i += 1;
         }
 
@@ -181,8 +206,8 @@ define([
         }
 
         // execute this code upon loading
-        add_buttons();
-        set_pin_listener();
+        //add_scroll_buttons();
+        //set_pin_listener();
 
         // add resize listener since jupyter will change some styles on resize
         $(window).resize(function () {
@@ -226,7 +251,7 @@ define([
         var action_name = 'pin';
         var full_action_name = Jupyter.actions.register(pin_action, action_name, prefix); // returns 'sideline:pin'
         var scroll_action_name = Jupyter.actions.register(scroll_to, 'scroll', prefix); // returns 'sideline:pin'
-        Jupyter.toolbar.add_buttons_group([full_action_name, scroll_action_name]);
+        Jupyter.toolbar.add_buttons_group([full_action_name]);
     }
 
     return {
