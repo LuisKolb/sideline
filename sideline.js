@@ -5,7 +5,6 @@ define([
     $,
     Jupyter,
 ) {
-
     // hacky way to add custom css styles, didnt get it to work another way so far
     var load_css = function () {
         var style = document.createElement("style");
@@ -17,7 +16,7 @@ define([
     };
 
     // load the extension
-    function load_ipython_extension() {
+    var initialize = function() {
 
         //console.log("[sideline] Loading sideline.css");
         //load_css('./sideline.css')
@@ -25,7 +24,113 @@ define([
 
         // initial state
         let is_screen_split = false;
+        let highest_pindex = 1;
 
+        // pin any cells that are marked after inital load
+        function pin_tagged_cells() {
+            let cells = Jupyter.notebook.get_cells();
+            let cells_to_pin = [];
+
+            for (cell in cells) {
+                let line = Jupyter.notebook.get_cell(cell).code_mirror.getLine(0);
+                if (line.startsWith('#sideline - subplot ')) {
+                    // cells that are subplots themself
+
+                    let name = line.split('#sideline - subplot ')[1]
+                    // check if the subplot name is an int and increase the tracker
+                    if (Number.isInteger(parseFloat(name))) {
+                        highest_pindex = parseFloat(name) + 1;
+                    }
+                    // remember cells and pin later, since pinning here would skip every second cell because indices change
+                    cells_to_pin.push([Jupyter.notebook.get_cell_element(cell), name])
+
+                } else if (line.startsWith('#sideline - go to subplot ')) {
+                    // cells that are supposed to scroll to the apropriate subplot
+
+                    let name = line.split('#sideline - go to subplot ')[1]
+                    set_click_listener_scroll(Jupyter.notebook.get_cell_element(cell), name)
+
+                } else if (line.startsWith('#sideline - toggle subplot ')) {
+                    // cells that are supposed to hide the apropriate subplot
+
+                    let name = line.split('#sideline - toggle subplot ')[1]
+                    set_click_listener_hide(Jupyter.notebook.get_cell_element(cell), name)
+                }
+
+            }
+            
+            // pin the remembered cells
+            for (let i=0; i<cells_to_pin.length; i++) {
+                pin_tagged_cell(cells_to_pin[i][0], cells_to_pin[i][1])
+            }
+        }
+
+        function pin_tagged_cell(cellObj, name) {
+            if (!is_screen_split) {
+                split_screen()
+            }
+            // todo: check if cell with id already exists, and pin below it to keep subplots together
+            $('#sideline-container').append(cellObj)
+            cellObj.addClass('sideline-pinned');
+            cellObj.attr('id', 'subplot-'+name);
+        }
+
+        // pin a new cell to the sideline-container and apply styles
+        function pin_new_cell(cell) {
+            let tag_str = "#sideline - subplot " + highest_pindex + "\n";
+            var cm_original = cell.code_mirror;
+
+            // prepend first line to tag the cell as a subplot if it isn't already tagged
+            if (!cm_original.getLine(cm_original.firstLine()).startsWith("#sideline - subplot ")) {
+                cm_original.replaceRange(tag_str, CodeMirror.Pos(cm_original.firstLine()-1));
+            }
+
+            // insert a cell above the selected cell, and set its value
+            Jupyter.notebook.insert_cell_above().code_mirror.setValue("#sideline - go to subplot " + highest_pindex);
+
+            // add listener/button to scroll the apropriate subplot (cell) into view
+            set_click_listener_scroll(Jupyter.notebook.get_cell_element(Jupyter.notebook.find_cell_index(cell)-1), highest_pindex);
+            
+            // todo: add button to hide the apropriate subplot?
+
+            let cellObj = Jupyter.notebook.get_cell_element(Jupyter.notebook.find_cell_index(cell));
+
+            $('#sideline-container').append(cellObj)
+            cellObj.addClass('sideline-pinned');
+            cellObj.attr('id', 'subplot-'+highest_pindex);
+
+            // scroll to the cell that was just pinned
+            document.getElementById('subplot-'+highest_pindex).scrollIntoView();
+
+            highest_pindex++;
+        }
+
+        // set the click()-listener to scroll to the apropriate subplot 
+        function set_click_listener_scroll(ref, name) {
+            ref.find('.input').append('<button id="sideline-goto-'+name+'" style="position:absolute" class="btn btn-default sideline-btn"><i class="fa fa-arrow-circle-right" aria-hidden="true"></i></button>')
+            ref.find('#sideline-goto-'+name).click(function() {
+                document.getElementById('subplot-'+name).scrollIntoView();
+            })
+        }
+
+        // set the click()-listener to hide the apropriate subplot 
+        function set_click_listener_hide(ref, name) {
+            ref.find('.input').append('<button id="sideline-toggle-'+name+'" style="position:absolute" class="btn btn-default sideline-btn"><i class="fa fa-toggle-on" aria-hidden="true"></i><i class="fa fa-toggle-off" aria-hidden="true" style="display: none;"></i></button>')
+            ref.find('#sideline-toggle-'+name).click(function() {
+                let target = document.getElementById('subplot-'+name);
+                if (target.style.display == 'none') {
+                    target.style.display = 'block';
+                    $(this).find('i.fa-toggle-on').show();
+                    $(this).find('i.fa-toggle-off').hide();
+                } else {
+                    target.style.display = 'none';
+                    $(this).find('i.fa-toggle-on').hide();
+                    $(this).find('i.fa-toggle-off').show();
+                }
+            })
+        }
+
+        // todo: deprecated?
         // add buttons to outputs
         function add_buttons() {
             let i = 0;
@@ -45,6 +150,8 @@ define([
             });
         }
 
+        // todo: deprecated?
+        // add buttons to scroll markers
         function add_scroll_buttons() {
             // todo: refactor this code to use Jupyter.notebook stuff instead of jquery, also only call once when pinned
 
@@ -65,20 +172,9 @@ define([
                 }
             });
         }
-
-        // todo: handle unpinning and all that
-
-        // todo: remove me
-        // remove buttons from outputs
-        function remove_buttons() {
-            $('#sideline-button').remove();
-        }
-
-        /**
-         * get first line of code text from input cell
-         * 
-         * @param {*} thisObj needs to be a $(this) of $('.input')
-         */
+        
+        // todo: deprecated?
+        //get first line of code text from input cell, thisObj needs to be a $(this) of $('.input')
         function get_first_line(thisObj) {
             return thisObj.find('.CodeMirror-line').first().children().first().text();
         }
@@ -117,40 +213,6 @@ define([
             return $('#header').height() + 'px';
         }
 
-        // todo: get highest number in use and set it as i
-        let i = 1;
-        
-        // pin cell to the sideline-container and apply styles
-        function pin_cell(cellObj) {
-
-            let comment = "#sideline - subplot " + i + "\n";
-
-            var cm_original = Jupyter.notebook.get_selected_cell().code_mirror;
-
-            // prepend first line to mark cell as subplot if it isn't already marked
-            if (!cm_original.getLine(cm_original.firstLine()).startsWith("#sideline - subplot ")) {
-                cm_original.replaceRange(comment, CodeMirror.Pos(cm_original.firstLine()-1));
-            }
-
-            // insert a cell above the pinned cell, and set its value
-            Jupyter.notebook.insert_cell_above().code_mirror.setValue("#sideline - scroll to subplot " + i);
-            // todo: insert button to scroll to appropriate subplot
-
-
-            $('#sideline-container').append(cellObj)
-            cellObj.addClass('sideline-pinned');
-            cellObj.attr('id', 'subplot-'+i);
-            cellObj.find('.sideline-btn').addClass('sideline-active')
-            
-            set_unpin_listener(cellObj);
-
-            // scroll to appropriate pinned cell
-            document.getElementById('subplot-'+i).scrollIntoView();
-
-            add_scroll_buttons();
-            i += 1;
-        }
-
         /* button click-listeners */
 
         // set click()-listeners to pin
@@ -159,7 +221,7 @@ define([
             $('.sideline-btn').click(function () {
                 if (is_screen_split == false) split_screen();
 
-                pin_cell($(this).parent().parent());
+                pin_new_cell($(this).parent().parent());
 
                 // todo: hook if result is refreshed to refresh popout
             });
@@ -205,11 +267,10 @@ define([
             $('#sideline-container').show()
         }
 
-        // execute this code upon loading
-        //add_scroll_buttons();
-        //set_pin_listener();
+        // execute upon loading
+        pin_tagged_cells();
 
-        // add resize listener since jupyter will change some styles on resize
+        // add a resize listener since jupyter will change some styles on resize
         $(window).resize(function () {
             if (is_screen_split) split_screen();
         });
@@ -217,42 +278,62 @@ define([
         /* add and register jupyter actions */
 
         // pin selected cell to sideline-container
-        var handler = function () {
+        var pin_handler = function () {
             // if screen is not already split, do that
-            if (!is_screen_split) split_screen();
+            if (!is_screen_split) {
+                split_screen();
+            }
             
             // for all selected cells, pin them to the side
-            $('.selected').each(function () {
-                pin_cell($(this));
-            })
+            pin_new_cell(Jupyter.notebook.get_selected_cell())
         };
 
-        var scrollHandler = function() {
-            var arg = Jupyter.notebook.get_selected_cell().code_mirror.getLine(0);
-            console.log(arg.replace( /^\D+/g, ''))
+        var unpin_handler = function() {
+            // todo
         }
-        
+
+        // toggle visibility of sideline and layout
+        var hide_container_handler = function() {
+            if ($('#sideline-container').css('display') == 'none') {
+                split_screen();
+                show_sideline_container();
+            } else {
+                hide_sideline_container();
+                reset_nb_width();
+            }
+        }
 
         var pin_action = {
             icon: 'fa-thumb-tack', // a font-awesome class used on buttons, etc
             help: 'Pin to Sideline',
             help_index: 'zz',
-            handler: handler
+            handler: pin_handler
         };
 
-        var scroll_to = {
-            icon: 'fa-thumb-tack',
-            help: 'scroll to target',
+        var unpin_action = {
+            icon: 'fa-ban',
+            help: 'Unpin the selected Cell',
             help_index: 'zz',
-            handler: scrollHandler
+            handler: unpin_handler
+        }
+
+        var hide_container_action = {
+            icon: 'fa-eye-slash',
+            help: 'Hide Sideline',
+            help_index: 'zz',
+            handler: hide_container_handler
         }
 
         var prefix = 'sideline';
-        var action_name = 'pin';
-        var full_action_name = Jupyter.actions.register(pin_action, action_name, prefix); // returns 'sideline:pin'
-        var scroll_action_name = Jupyter.actions.register(scroll_to, 'scroll', prefix); // returns 'sideline:pin'
-        Jupyter.toolbar.add_buttons_group([full_action_name]);
+        var pin_action_name = Jupyter.actions.register(pin_action, 'pin', prefix); // returns 'sideline:pin'
+        var unpin_action_name = Jupyter.actions.register(unpin_action, 'unpin', prefix); // returns 'sideline:pin'
+        var hide_container_action_name = Jupyter.actions.register(hide_container_action, 'hide_container', prefix); // returns 'sideline:hide_container'
+        Jupyter.toolbar.add_buttons_group([pin_action_name, unpin_action_name, hide_container_action_name]);
     }
+
+    var load_ipython_extension = function () {
+        Jupyter.notebook.events.on('notebook_loaded.Notebook', initialize())
+    };
 
     return {
         load_ipython_extension: load_ipython_extension
