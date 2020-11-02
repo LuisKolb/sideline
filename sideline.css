@@ -1,3 +1,28 @@
 .sideline-active {
     box-shadow: inset 0px 0px 3px 3px rgba(15,160,196,0.75)
 }
+
+.sideline-btn {
+    position: absolute;
+}
+
+.nb-container {
+    width: 50vw;
+    margin-left: 3vw;
+    margin-right: 3vw;
+}
+
+.sl-container {
+    width: 41vw;
+    margin-right: 3vw;
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #fff;
+    min-height: 0;
+    box-shadow: 0px 0px 12px 1px rgba(87, 87, 87, 0.2);
+    position: fixed;
+    right: 0;
+    top: 0;
+    overflow-y: auto;
+    max-height: 80vh;
+}

@@ -1,26 +1,25 @@
 define([
     'jquery',
     'base/js/namespace',
+    'require',
 ], function (
     $,
     Jupyter,
+    requirejs,
 ) {
-    // hacky way to add custom css styles, didnt get it to work another way so far
-    var load_css = function () {
-        var style = document.createElement("style");
-        style.type = "text/css"
-        style.innerHTML = "\n"
-            + ".sideline-active {box-shadow: inset 0px 0px 3px 3px rgba(15,160,196,0.75)}"
-            + "\n";
-        document.head.appendChild(style);
+    var load_css = function (arg) {
+        var link = $('<link/>')
+        $('head').append(link)
+        link.attr('href',requirejs.toUrl('./'+arg+'.css'))
+            .attr('rel','stylesheet')
+            .attr('type','text/css');
     };
 
     // load the extension
     var initialize = function() {
 
-        //console.log("[sideline] Loading sideline.css");
-        //load_css('./sideline.css')
-        load_css();
+        console.log("[sideline] Loading sideline.css");
+        load_css('sideline');
 
         // initial state
         let is_screen_split = false;
@@ -107,7 +106,7 @@ define([
 
         // set the click()-listener to scroll to the apropriate subplot 
         function set_click_listener_scroll(ref, name) {
-            ref.find('.input').append('<button id="sideline-goto-'+name+'" style="position:absolute" class="btn btn-default sideline-btn"><i class="fa fa-arrow-circle-right" aria-hidden="true"></i></button>')
+            ref.find('.input').append('<button id="sideline-goto-'+name+'" class="btn btn-default sideline-btn"><i class="fa fa-arrow-circle-right" aria-hidden="true"></i></button>')
             ref.find('#sideline-goto-'+name).click(function() {
                 document.getElementById('subplot-'+name).scrollIntoView();
             })
@@ -115,7 +114,7 @@ define([
 
         // set the click()-listener to hide the apropriate subplot 
         function set_click_listener_hide(ref, name) {
-            ref.find('.input').append('<button id="sideline-toggle-'+name+'" style="position:absolute" class="btn btn-default sideline-btn"><i class="fa fa-toggle-on" aria-hidden="true"></i><i class="fa fa-toggle-off" aria-hidden="true" style="display: none;"></i></button>')
+            ref.find('.input').append('<button id="sideline-toggle-'+name+'" class="btn btn-default sideline-btn"><i class="fa fa-toggle-on" aria-hidden="true"></i><i class="fa fa-toggle-off" aria-hidden="true" style="display: none;"></i></button>')
             ref.find('#sideline-toggle-'+name).click(function() {
                 let target = document.getElementById('subplot-'+name);
                 if (target.style.display == 'none') {
@@ -143,9 +142,9 @@ define([
                     return '';
                 } else if (get_first_line($(this)).startsWith("#sideline - scroll to subplot ")) {
                     var arg = Jupyter.notebook.get_selected_cell().code_mirror.getLine(0).replace( /^\D+/g, '');
-                    return '<button id="sideline-goto-'+arg+'" style="position:absolute" class="btn btn-default sideline-btn"><i class="fa fa-thumb-tack" aria-hidden="true"></i></button>';
+                    return '<button id="sideline-goto-'+arg+'" class="btn btn-default sideline-btn"><i class="fa fa-thumb-tack" aria-hidden="true"></i></button>';
                 } else {
-                    return '<button style="position:absolute" class="btn btn-default sideline-btn"><i class="fa fa-thumb-tack" aria-hidden="true"></i></button>';
+                    return '<button class="btn btn-default sideline-btn"><i class="fa fa-thumb-tack" aria-hidden="true"></i></button>';
                 }
             });
         }
@@ -159,7 +158,7 @@ define([
             $('.input').append(function () {
                 if (get_first_line($(this)).startsWith("#sideline - scroll to subplot ")) {
                     var arg = get_first_line($(this)).replace( /^\D+/g, '');
-                    return '<button id="sideline-goto-'+arg+'" style="position:absolute" class="btn btn-default sideline-btn"><i class="fa fa-thumb-tack" aria-hidden="true"></i></button>';
+                    return '<button id="sideline-goto-'+arg+'" class="btn btn-default sideline-btn"><i class="fa fa-thumb-tack" aria-hidden="true"></i></button>';
                 } 
             });
             // set click()-listeners
@@ -181,9 +180,8 @@ define([
 
         // split the screen to make space for pinned elements on the side
         function split_screen() {
-            // todo: use classes instead of style
             $('#notebook').css({ 'display': 'flex' });
-            $('#notebook-container').css({ 'width': '50vw', 'margin-left': '3vw', 'margin-right': '3vw' });
+            $('#notebook-container').addClass('nb-container');
             if ($('#sideline-container').length) {
                 show_sideline_container();
             } else {
@@ -194,9 +192,8 @@ define([
 
         // reset the layout to the default
         function reset_nb_width() {
-            // todo: update once split_screen() uses classes instead of style
             $('#notebook').css({ 'display': '' })
-            $('#notebook-container').css({ 'width': '', 'margin-left': '', 'margin-right': '', 'display': '' });
+            $('#notebook-container').removeClass('nb-container');
             hide_sideline_container();
             is_screen_split = false;
         }
@@ -242,20 +239,9 @@ define([
         /* sideline-container methods */
 
         function insert_sideline_container() {
-            $('#notebook-container').append('<div id="sideline-container"></div>');
+            $('#notebook-container').append('<div id="sideline-container" class="sl-container"></div>');
             $('#sideline-container').css({
-                'width': '41vw',
-                'margin-right': '3vw',
-                'margin-top': '20px',
-                'padding': '15px',
-                'background-color': '#fff',
-                'min-height': '0',
-                'box-shadow': '0px 0px 12px 1px rgba(87, 87, 87, 0.2)',
-                'position': 'fixed',
-                'right': '0',
                 'top': get_header_height(),
-                'overflow-y': 'auto',
-                'max-height': '80vh',
             });
         }
 

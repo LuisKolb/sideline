@@ -1,6 +1,4 @@
-load css from .css file
 handle unpinning (where to insert?)
-add button to hide the apropriate subplot?
 maybe atuomatically change scroll cell tag if subplot tag is changed?
 move end_space and change where cells are inserted
 once, (?) when a cell with "go to..." is visible for a set time, scroll to its subplot
