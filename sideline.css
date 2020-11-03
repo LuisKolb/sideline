@@ -3,7 +3,8 @@
 }
 
 .sideline-btn {
-    position: absolute;
+    position: relative;
+    width: 40px;
 }
 
 .nb-container {
@@ -25,4 +26,8 @@
     top: 0;
     overflow-y: auto;
     max-height: 80vh;
+}
+
+.sideline-btn-container {
+    position: absolute;
 }
