@@ -67,8 +67,6 @@ define([
         return false;
     }
 
-
-
     // load the extension
     var initialize = function () {
 
@@ -176,7 +174,15 @@ define([
                 + '<button id="sideline-goto-' + name + '" class="btn btn-default sideline-btn"><i class="fa fa-arrow-circle-right" aria-hidden="true"></i></button>'
                 + '</div>')
             ref.find('#sideline-goto-' + name).click(function () {
-                document.getElementById('subplot-' + name).scrollIntoView();
+                var subplot = document.getElementById('subplot-' + name);
+                subplot.scrollIntoView();
+                // blinking animation
+                var count = 0;
+                var x = setInterval(function () {
+                    $('#subplot-'+name).toggleClass('background-hint');
+                    if (count >= 3) clearInterval(x);
+                    count++;
+                }, 500)
             })
             ref.find('#sideline-toggle-' + name).click(function () {
                 let target = document.getElementById('subplot-' + name);

@@ -1,7 +1,8 @@
 handle unpinning (where to insert?)
-maybe atuomatically change scroll cell tag if subplot tag is changed?
-move end_space and change where cells are inserted
-once, (?) when a cell with "go to..." is visible for a set time, scroll to its subplot
 run subplots when linking cells are run? Jupyter.notebook.execute_cells(indices)
-flashing animation of the cell that was scrolled to
 fix tag not showing in tag-toolbar when first pinned
+
+decide:
+    once, (?) when a cell with "go to..." is visible for a set time, scroll to its subplot
+    move end_space and change where cells are inserted
+    maybe atuomatically change scroll cell tag if subplot tag is changed?

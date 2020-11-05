@@ -31,3 +31,15 @@
 .sideline-btn-container {
     position: absolute;
 }
+
+/* blinking animation */
+
+.background-hint{
+    background: #3F7FBF;
+}
+
+.sideline-pinned {
+    -webkit-transition: background 0.5s ease-in-out;
+    -ms-transition:     background 0.5s ease-in-out;
+    transition:         background 0.5s ease-in-out;
+}
