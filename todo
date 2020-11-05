@@ -1,8 +1,13 @@
-handle unpinning (where to insert?)
-run subplots when linking cells are run? Jupyter.notebook.execute_cells(indices)
-fix tag not showing in tag-toolbar when first pinned
+high prio:
+    magic commands? (programming language agnostic) (can these even be implemented with an nbextension?)
+
+low prio:
+    fix tag not updating in cell-toolbar
+    if cell is inserted on sideline, add the same metadata.tag as the cell below/above
+    prevent pinning of "link"-cells, but not of all md cells
 
 decide:
-    once, (?) when a cell with "go to..." is visible for a set time, scroll to its subplot
+    run subplots when linking cells are run? (e.g. with Jupyter.notebook.execute_cells(indices))
+    once(?) , when a cell with "go to..." is visible for a set time, scroll to its subplot
     move end_space and change where cells are inserted
     maybe atuomatically change scroll cell tag if subplot tag is changed?

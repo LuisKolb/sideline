@@ -33,22 +33,8 @@ define([
     };
 
     // remove a tag from a cell's metadata.tags
-    var remove_tag = function (cell, name) {
-        // Remove from metadata
-        if (!cell.metadata || !cell.metadata.tags) {
-            // No tags to remove
-            return false;
-        }
-        // Remove tag from tags list
-        var index = cell.metadata.tags.indexOf(name);
-        if (index !== -1) {
-            cell.metadata.tags.splice(index, 1);
-        }
-        // If tags list is empty, remove it
-        if (cell.metadata.tags.length === 0) {
-            delete cell.metadata.tags;
-        }
-
+    var remove_tags = function (cell) {
+        delete cell.metadata.tags;
         cell.events.trigger('set_dirty.Notebook', { value: true });
         return true;
     };
@@ -143,28 +129,29 @@ define([
 
         // pin a new cell to the sideline-container and apply styles
         function pin_new_cell(cell) {
-
-            write_tag(cell, "subplot-" + highest_pindex)
-
-            // insert a markdown-cell above the selected cell, and set its value
-            var md_reference_cell = Jupyter.notebook.insert_cell_above('markdown');
-            md_reference_cell.unrender();
-            md_reference_cell.code_mirror.setValue("#sideline - link to subplot " + highest_pindex);
-            md_reference_cell.render();
-
-            // add button container next to the md-cell
-            add_container_with_buttons(Jupyter.notebook.get_cell_element(Jupyter.notebook.find_cell_index(md_reference_cell)), highest_pindex);
-
             let cellObj = Jupyter.notebook.get_cell_element(Jupyter.notebook.find_cell_index(cell));
 
-            $('#sideline-container').append(cellObj)
-            cellObj.addClass('sideline-pinned');
-            cellObj.attr('id', 'subplot-' + highest_pindex);
+            if (!cellObj.hasClass('sideline-pinned')) {
+                // insert a markdown-cell above the selected cell, and set its value
+                var md_reference_cell = Jupyter.notebook.insert_cell_above('markdown');
+                md_reference_cell.unrender();
+                md_reference_cell.code_mirror.setValue("#sideline - link to subplot " + highest_pindex);
+                md_reference_cell.render();
 
-            // scroll to the cell that was just pinned
-            document.getElementById('subplot-' + highest_pindex).scrollIntoView();
+                // add button container next to the md-cell
+                add_container_with_buttons(Jupyter.notebook.get_cell_element(Jupyter.notebook.find_cell_index(md_reference_cell)), highest_pindex);
 
-            highest_pindex++;
+                // add sideline markers/metadata 
+                write_tag(cell, "subplot-" + highest_pindex)
+                cellObj.addClass('sideline-pinned');
+                cellObj.attr('id', 'subplot-' + highest_pindex);
+                $('#sideline-container').append(cellObj)
+                
+                // scroll to the cell that was just pinned
+                document.getElementById('subplot-' + highest_pindex).scrollIntoView();
+
+                highest_pindex++;
+            }
         }
 
         // add a button container and set onclicks
@@ -179,7 +166,7 @@ define([
                 // blinking animation
                 var count = 0;
                 var x = setInterval(function () {
-                    $('#subplot-'+name).toggleClass('background-hint');
+                    $('#subplot-' + name).toggleClass('background-hint');
                     if (count >= 3) clearInterval(x);
                     count++;
                 }, 500)
@@ -269,11 +256,31 @@ define([
             pin_new_cell(Jupyter.notebook.get_selected_cell())
         };
 
+        // unpin selected cell, remove markers and tage as well as referencing "link"-cells
         var unpin_handler = function () {
-            // todo
+            var cell = Jupyter.notebook.get_selected_cell();
+            var name = get_sideline_tag(cell);
+            var jq_ref = Jupyter.notebook.get_cell_element(Jupyter.notebook.find_cell_index(cell));
+
+            // insert after first found 
+            var ref_link = $('#sideline-toggle-' + name);
+            if (ref_link.length > 0) {
+                ref_link.first().parent().parent().after(jq_ref);
+                ref_link.parent().parent().remove();
+            } else {
+                // if no link is found, append aat end of nb
+                $('#notebook-container').append(ref_subplot);
+            }
+
+            // remove sideline markers and metadata
+            jq_ref.removeClass('sideline-pinned');
+            jq_ref.removeAttr('id');
+            remove_tags(cell);
+
+            check_if_any_pinned();
         }
 
-        // toggle visibility of sideline and layout
+        // toggle visibility of sideline and toggle layout
         var hide_container_handler = function () {
             if ($('#sideline-container').css('display') == 'none') {
                 split_screen();
@@ -295,14 +302,14 @@ define([
             icon: 'fa-ban',
             help: 'Unpin the selected Cell',
             help_index: 'zz',
-            handler: pin_tagged_cells
+            handler: unpin_handler
         }
 
         var hide_container_action = {
             icon: 'fa-eye-slash',
             help: 'Hide Sideline',
             help_index: 'zz',
-            handler: unpin_handler
+            handler: hide_container_handler
         }
 
         var prefix = 'sideline';
