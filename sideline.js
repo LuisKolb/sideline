@@ -153,7 +153,7 @@ define([
             ref.find('#sideline-toggle-' + name).click(function () {
                 let target = document.getElementById('subplot-' + name);
                 if (target.style.display == 'none') {
-                    target.style.display = 'block';
+                    target.removeAttribute('style') // entirely remove style attribute when toggled visible
                     $(this).find('i.fa-toggle-on').show();
                     $(this).find('i.fa-toggle-off').hide();
                 } else {
