@@ -39,6 +39,7 @@ define([
         return true;
     };
 
+    // read all tags from a cell's metadata
     var read_tags = function (cell) {
         return cell.metadata.tags;
     }
@@ -69,32 +70,8 @@ define([
             let cells_to_pin = [];
 
             for (cell in cells) {
-
                 let line = Jupyter.notebook.get_cell(cell).code_mirror.getLine(0);
-                console.log(line)
-                if (line.startsWith('#sideline - subplot ')) {
-                    // cells that are subplots themself
-
-                    let name = line.split('#sideline - subplot ')[1]
-                    // check if the subplot name is an int and increase the tracker
-                    if (Number.isInteger(parseFloat(name))) {
-                        highest_pindex = parseFloat(name) + 1;
-                    }
-                    // remember cells and pin later, since pinning here would skip every second cell because indices change
-                    cells_to_pin.push([Jupyter.notebook.get_cell_element(cell), name])
-
-                } else if (line.startsWith('#sideline - go to subplot ')) {
-                    // cells that are supposed to scroll to the apropriate subplot
-
-                    let name = line.split('#sideline - go to subplot ')[1]
-                    set_click_listener_scroll(Jupyter.notebook.get_cell_element(cell), name)
-
-                } else if (line.startsWith('#sideline - toggle subplot ')) {
-                    // cells that are supposed to hide the apropriate subplot
-
-                    let name = line.split('#sideline - toggle subplot ')[1]
-                    set_click_listener_hide(Jupyter.notebook.get_cell_element(cell), name)
-                } else if (Jupyter.notebook.get_cell(cell).metadata.tags && get_sideline_tag(Jupyter.notebook.get_cell(cell))) {
+                if (Jupyter.notebook.get_cell(cell).metadata.tags && get_sideline_tag(Jupyter.notebook.get_cell(cell))) {
                     // cells that are subplots themself
 
                     let name = get_sideline_tag(Jupyter.notebook.get_cell(cell))
@@ -104,11 +81,10 @@ define([
                     }
                     // remember cells and pin later, since pinning here would skip every second cell because indices change
                     cells_to_pin.push([Jupyter.notebook.get_cell_element(cell), name])
-                } else if (line.startsWith('#sideline - link to subplot ')) {
-                    let name = line.split('#sideline - link to subplot ')[1]
+                } else if (line.startsWith('sideline - link to subplot ')) {
+                    let name = line.split('sideline - link to subplot ')[1]
                     add_container_with_buttons(Jupyter.notebook.get_cell_element(cell), name)
                 }
-
             }
 
             // pin the remembered cells
@@ -129,28 +105,30 @@ define([
 
         // pin a new cell to the sideline-container and apply styles
         function pin_new_cell(cell) {
-            let cellObj = Jupyter.notebook.get_cell_element(Jupyter.notebook.find_cell_index(cell));
+            if (cell.cell_type != 'markdown' || !cell.code_mirror.getLine(0).includes("sideline")) {
+                let cellObj = Jupyter.notebook.get_cell_element(Jupyter.notebook.find_cell_index(cell));
 
-            if (!cellObj.hasClass('sideline-pinned')) {
-                // insert a markdown-cell above the selected cell, and set its value
-                var md_reference_cell = Jupyter.notebook.insert_cell_above('markdown');
-                md_reference_cell.unrender();
-                md_reference_cell.code_mirror.setValue("#sideline - link to subplot " + highest_pindex);
-                md_reference_cell.render();
+                if (!cellObj.hasClass('sideline-pinned')) {
+                    // insert a markdown-cell above the selected cell, and set its value
+                    var md_reference_cell = Jupyter.notebook.insert_cell_above('markdown');
+                    md_reference_cell.unrender();
+                    md_reference_cell.code_mirror.setValue("sideline - link to subplot " + highest_pindex);
+                    md_reference_cell.render();
 
-                // add button container next to the md-cell
-                add_container_with_buttons(Jupyter.notebook.get_cell_element(Jupyter.notebook.find_cell_index(md_reference_cell)), highest_pindex);
+                    // add button container next to the md-cell
+                    add_container_with_buttons(Jupyter.notebook.get_cell_element(Jupyter.notebook.find_cell_index(md_reference_cell)), highest_pindex);
 
-                // add sideline markers/metadata 
-                write_tag(cell, "subplot-" + highest_pindex)
-                cellObj.addClass('sideline-pinned');
-                cellObj.attr('id', 'subplot-' + highest_pindex);
-                $('#sideline-container').append(cellObj)
-                
-                // scroll to the cell that was just pinned
-                document.getElementById('subplot-' + highest_pindex).scrollIntoView();
+                    // add sideline markers/metadata 
+                    write_tag(cell, "subplot-" + highest_pindex)
+                    cellObj.addClass('sideline-pinned');
+                    cellObj.attr('id', 'subplot-' + highest_pindex);
+                    $('#sideline-container').append(cellObj)
 
-                highest_pindex++;
+                    // scroll to the cell that was just pinned
+                    document.getElementById('subplot-' + highest_pindex).scrollIntoView();
+
+                    highest_pindex++;
+                }
             }
         }
 
@@ -431,5 +409,43 @@ define([
             check_if_any_pinned();
             set_pin_listener();
         });
+    }
+
+    // todo: deprecated?
+    // pin any cells that are marked after inital load
+    function pin_tagged_cells_depr() {
+        let cells = Jupyter.notebook.get_cells();
+        let cells_to_pin = [];
+
+        for (cell in cells) {
+            let line = Jupyter.notebook.get_cell(cell).code_mirror.getLine(0);
+            if (line.startsWith('#sideline - subplot ')) {
+                // cells that are subplots themself
+
+                let name = line.split('#sideline - subplot ')[1]
+                // check if the subplot name is an int and increase the tracker
+                if (Number.isInteger(parseFloat(name))) {
+                    highest_pindex = parseFloat(name) + 1;
+                }
+                // remember cells and pin later, since pinning here would skip every second cell because indices change
+                cells_to_pin.push([Jupyter.notebook.get_cell_element(cell), name])
+
+            } else if (line.startsWith('#sideline - go to subplot ')) {
+                // cells that are supposed to scroll to the apropriate subplot
+
+                let name = line.split('#sideline - go to subplot ')[1]
+                set_click_listener_scroll(Jupyter.notebook.get_cell_element(cell), name)
+
+            } else if (line.startsWith('#sideline - toggle subplot ')) {
+                // cells that are supposed to hide the apropriate subplot
+
+                let name = line.split('#sideline - toggle subplot ')[1]
+                set_click_listener_hide(Jupyter.notebook.get_cell_element(cell), name)
+            }
+        }
+        // pin the remembered cells
+        for (let i = 0; i < cells_to_pin.length; i++) {
+            pin_tagged_cell(cells_to_pin[i][0], cells_to_pin[i][1])
+        }
     }
 });

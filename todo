@@ -1,10 +1,9 @@
 high prio:
-    magic commands? (programming language agnostic) (can these even be implemented with an nbextension?)
+    (magic commands: see overleaf, not practical, use metadata.tags for language-agnostic tagging and md-cells for "linking" to subplots)
 
 low prio:
     fix tag not updating in cell-toolbar
-    if cell is inserted on sideline, add the same metadata.tag as the cell below/above
-    prevent pinning of "link"-cells, but not of all md cells
+    if new cell is inserted below/above inside the pinned area, add the same metadata.tag as the cell below/above
 
 decide:
     run subplots when linking cells are run? (e.g. with Jupyter.notebook.execute_cells(indices))
