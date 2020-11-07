@@ -105,9 +105,10 @@ define([
 
         // pin a new cell to the sideline-container and apply styles
         function pin_new_cell(cell) {
+            //prevent only already "linking" md-cells from being pinned, don't prevent other md-cells from being pinned
             if (cell.cell_type != 'markdown' || !cell.code_mirror.getLine(0).includes("sideline")) {
+                
                 let cellObj = Jupyter.notebook.get_cell_element(Jupyter.notebook.find_cell_index(cell));
-
                 if (!cellObj.hasClass('sideline-pinned')) {
                     // insert a markdown-cell above the selected cell, and set its value
                     var md_reference_cell = Jupyter.notebook.insert_cell_above('markdown');
