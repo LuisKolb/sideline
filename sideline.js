@@ -17,45 +17,103 @@ define([
             .attr('type', 'text/css');
     };
 
-    // push a tag to a cell's metadata.tags
-    var write_tag = function (cell, name) {
-        // Add to metadata
-        if (cell.metadata.tags === undefined) {
-            cell.metadata.tags = [];
-        } else if (cell.metadata.tags.indexOf(name) !== -1) {
-            // Tag already exists
-            return false;
-        }
-        cell.metadata.tags.push(name);
-
-        cell.events.trigger('set_dirty.Notebook', { value: true });
-        return true;
-    };
-
-    // remove a tag from a cell's metadata.tags
-    var remove_tags = function (cell) {
-        delete cell.metadata.tags;
-        cell.events.trigger('set_dirty.Notebook', { value: true });
-        return true;
-    };
-
-    // read all tags from a cell's metadata
-    var read_tags = function (cell) {
-        return cell.metadata.tags;
-    }
-
-    // return the first found sideline tag (and only the tag)
-    var get_sideline_tag = function (cell) {
-        for (tag of cell.metadata.tags) {
-            if (tag.startsWith("subplot-")) {
-                return tag.split("-")[1]
-            }
-        }
-        return false;
-    }
-
     // load the extension
     var initialize = function () {
+
+        /* functions copied from tags.js in the Jupyter Notebook Github repository */
+
+        var make_tag = function (name, on_remove, is_editable) {
+            var tag_UI = $('<span/>')
+                .addClass('cell-tag')
+                .text(name);
+
+            if (is_editable) {
+                var remove_button = $('<i/>')
+                    .addClass('remove-tag-btn')
+                    .addClass('fa fa-times')
+                    .click(function () {
+                        on_remove(name);
+                        return false;
+                    });
+                tag_UI.append(remove_button);
+            }
+            return tag_UI;
+        };
+
+        var write_tag = function (cell, name, add) {
+            if (add) {
+                // Add to metadata
+                if (cell.metadata.tags === undefined) {
+                    cell.metadata.tags = [];
+                } else if (cell.metadata.tags.indexOf(name) !== -1) {
+                    // Tag already exists
+                    return false;
+                }
+                cell.metadata.tags.push(name);
+            } else {
+                // Remove from metadata
+                if (!cell.metadata || !cell.metadata.tags) {
+                    // No tags to remove
+                    return false;
+                }
+                // Remove tag from tags list
+                var index = cell.metadata.tags.indexOf(name);
+                if (index !== -1) {
+                    cell.metadata.tags.splice(index, 1);
+                }
+                // If tags list is empty, remove it
+                if (cell.metadata.tags.length === 0) {
+                    delete cell.metadata.tags;
+                }
+            }
+            cell.events.trigger('set_dirty.Notebook', { value: true });
+            return true;
+        };
+
+        var remove_tag = function (cell, tag_container) {
+            return function (name) {
+
+                var changed = write_tag(cell, name, false);
+                if (changed) {
+                    // Remove tag UI
+                    var tag_map = jQuery.data(tag_container, "tag_map") || {};
+                    var tag_UI = tag_map[name];
+                    delete tag_map[name];
+                    tag_UI.remove();
+                }
+            };
+        };
+
+        var add_tag = function (cell, name, tag_container, on_remove) {
+            if (name === '') {
+                // Skip empty strings
+                return;
+            }
+            // Write tag to metadata
+            var changed = write_tag(cell, name, true);
+
+            if (changed) {
+                // Make tag UI
+                var tag = make_tag(name, on_remove, cell.is_editable());
+                tag_container.append(tag);
+                var tag_map = jQuery.data(tag_container, "tag_map") || {};
+                tag_map[name] = tag;
+                jQuery.data(tag_container, 'tag_map', tag_map);
+            }
+        };
+
+        /* custom tag functions */
+
+        // return the first found sideline tag (only the tag string)
+        var get_sideline_tag = function (cell) {
+            for (tag of cell.metadata.tags) {
+                if (tag.startsWith("subplot-")) {
+                    return tag.split("-")[1]
+                }
+            }
+            return false;
+        };
+
 
         console.log("[sideline] Loading sideline.css");
         load_css('sideline');
@@ -75,8 +133,8 @@ define([
                     // cells that are subplots themself
 
                     let name = get_sideline_tag(Jupyter.notebook.get_cell(cell))
-                    // check if the subplot name is an int and increase the tracker
-                    if (Number.isInteger(parseFloat(name))) {
+                    // check if the subplot name is a higher int and increase the tracker
+                    if (Number.isInteger(parseFloat(name)) && parseInt(name) >= highest_pindex) {
                         highest_pindex = parseFloat(name) + 1;
                     }
                     // remember cells and pin later, since pinning here would skip every second cell because indices change
@@ -97,17 +155,24 @@ define([
             if (!is_screen_split) {
                 split_screen()
             }
+
             // todo: check if cell with id already exists, and pin below it to keep subplots together
-            $('#sideline-container').append(cellObj)
+            if ($('#subplot-' + name).length > 0) {
+                $('#subplot-' + name).last().after(cellObj);
+            } else {
+                $('#sideline-container').append(cellObj);
+            }
+
             cellObj.addClass('sideline-pinned');
             cellObj.attr('id', 'subplot-' + name);
+
         }
 
         // pin a new cell to the sideline-container and apply styles
         function pin_new_cell(cell) {
             //prevent only already "linking" md-cells from being pinned, don't prevent other md-cells from being pinned
             if (cell.cell_type != 'markdown' || !cell.code_mirror.getLine(0).includes("sideline")) {
-                
+
                 let cellObj = Jupyter.notebook.get_cell_element(Jupyter.notebook.find_cell_index(cell));
                 if (!cellObj.hasClass('sideline-pinned')) {
                     // insert a markdown-cell above the selected cell, and set its value
@@ -120,7 +185,10 @@ define([
                     add_container_with_buttons(Jupyter.notebook.get_cell_element(Jupyter.notebook.find_cell_index(md_reference_cell)), highest_pindex);
 
                     // add sideline markers/metadata 
-                    write_tag(cell, "subplot-" + highest_pindex)
+                    var tag_container = cellObj.find('.tag-container');
+                    var name = 'subplot-' + highest_pindex;
+                    add_tag(cell, name, tag_container, remove_tag(cell, tag_container));
+
                     cellObj.addClass('sideline-pinned');
                     cellObj.attr('id', 'subplot-' + highest_pindex);
                     $('#sideline-container').append(cellObj)
@@ -248,13 +316,13 @@ define([
                 ref_link.parent().parent().remove();
             } else {
                 // if no link is found, append aat end of nb
-                $('#notebook-container').append(ref_subplot);
+                $('#notebook-container').append(jq_ref);
             }
 
             // remove sideline markers and metadata
             jq_ref.removeClass('sideline-pinned');
             jq_ref.removeAttr('id');
-            remove_tags(cell);
+            jq_ref.find('.remove-tag-btn').click();
 
             check_if_any_pinned();
         }
@@ -394,8 +462,6 @@ define([
             if (is_screen_split == false) split_screen();
 
             pin_new_cell($(this).parent().parent());
-
-            // todo: hook if result is refreshed to refresh popout
         });
     }
 
