@@ -1,14 +1,19 @@
 high prio:
     (magic commands: see overleaf, not practical, use metadata.tags for language-agnostic tagging and md-cells for "linking" to subplots)
+    wrap each subplot in sl-container? to keep execution order
 
 low prio:
     unpinning: scroll to cell that was unpinned
     update README.mb, icon.png and sideline.yml
     if no subplot with the tag a link-cell is referencing exists, dont insert buttons on the linking cell (and show an error in the link-cell?)
+    bugfix: paste-and-replace not adding tags
+
+low low prio:
+    if tag is removed, also automatically unpin cell?
 
 decide:
     run subplots when linking cells are run? (e.g. with Jupyter.notebook.execute_cells(indices))
     once(?) , when a cell with "go to..." is visible for a set time, scroll to its subplot?
     move end_space and change where cells are inserted/restore functionality?
     maybe atuomatically change scroll cell tag if subplot tag is changed?
-    if tag is removed, also automatically unpin cell?
+    if last cell with id == highest_pindex is unpinned, decrement it by one?
