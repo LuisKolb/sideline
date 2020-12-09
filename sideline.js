@@ -102,6 +102,56 @@ define([
         }
     };
 
+    /* overwrite execute_cells */
+
+    /**
+     * Execute cells corresponding to the given indices.
+     * If a link to a subplot is encountered, execute those subplots directly after the linking cell is executed. 
+     *
+     * @param {Array} indices - indices of the cells to execute
+     */
+    Jupyter.Notebook.prototype.execute_cells = function (indices) {
+        console.log("[sideline] Custom Notebook.prototype.execute_cells() was called.");
+
+        if (indices.length === 0) {
+            return;
+        }
+
+        var cell;
+        var subplots_already_executed = [];
+
+        for (var i = 0; i < indices.length; i++) {
+            cell = this.get_cell(indices[i]);
+            cell.execute();
+
+            let line = cell.code_mirror.getLine(0);
+            if (line.startsWith('sideline - link to subplot ')) {
+                let name = line.split('sideline - link to subplot ')[1]
+                var subplots_to_execute = [];
+
+                for (var j = 0; j < indices.length; j++) {
+                    if (get_sideline_tag(this.get_cell(indices[j])) == name) {
+                        console.log(name);
+                        subplots_to_execute.push(j)
+                    }
+                }
+                for (index of subplots_to_execute) {
+                    if (subplots_already_executed.includes(index)) {
+                        break;
+                    } else {
+                        this.get_cell(indices[index]).execute();
+                        subplots_already_executed.push(index);
+                    }
+                }
+            }
+        }
+
+        this.select(indices[indices.length - 1]);
+        this.command_mode();
+        this.set_dirty(true);
+    };
+
+
     /* custom tag functions */
 
     // return the first found sideline tag (only the tag string)
