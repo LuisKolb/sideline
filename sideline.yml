@@ -1,12 +1,12 @@
 Type: Jupyter Notebook Extension
 Compatibility: 4.x, 5.x
 Name: Sideline
-Main: sideline.js
+Main: main.js
 Icon: icon.png
 Link: README.md
 Description: Focus on a main narrative and hide secondary narratives on the side.
 Parameters:
 - name: sideline.hide_automatic
-  description: Hide marked cells automatically upon opening the Notebook
+  description: Open Notebook with Subplots hidden
   input_type: checkbox
   default: true

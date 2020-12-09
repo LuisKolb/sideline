@@ -1,7 +1,7 @@
 This extension
 ==============
 
-Focus on a main narrative and hide secondary narratives on the side.
+Focus on the narrative you want to tell and show code for data cleaning, exploration, and related tasks only on demand.
 
 Installation
 -----
@@ -17,7 +17,7 @@ A more detailed description can go here, maybe covering different variations of 
 Options
 -------
 
-Some description of the different options the nbextension provides, what they do, and their default values
+Open Notebook with Subplots hidden (default true): cells marked as subplots will be collapsed when the notebook is opened.
 
 Internals
 ---------
