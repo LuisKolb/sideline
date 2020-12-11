@@ -245,7 +245,19 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
     var add_container_with_buttons = function (ref, name) {
         ref.prepend('<div class="sideline-btn-container">' + '<button id="sideline-toggle-' + name + '" class="btn btn-default sideline-btn"><i class="fa fa-toggle-on" aria-hidden="true"></i><i class="fa fa-toggle-off" aria-hidden="true" style="display: none;"></i></button>' + '<button id="sideline-goto-' + name + '" class="btn btn-default sideline-btn"><i class="fa fa-arrow-circle-right" aria-hidden="true"></i></button>' + "</div>");
         ref.find("#sideline-goto-" + name).click(function () {
-            document.getElementsByClassName("subplot-" + name)[0].scrollIntoView();
+            let targets = document.getElementsByClassName("subplot-" + name);
+            if (!is_screen_split) {
+                split_screen();
+            }
+            // if subplots are hidden, show them before proceeding 
+            for (target of targets) {
+                if (target.style.display == "none") {
+                    target.removeAttribute("style"); // entirely remove style attribute when toggled visible
+                    $(this).parent().find("i.fa-toggle-on").show();
+                    $(this).parent().find("i.fa-toggle-off").hide();
+                }
+            }
+            targets[0].scrollIntoView();
             // blinking animation
             var count = 0;
             var x = setInterval(function () {
@@ -255,6 +267,9 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
             }, 500);
         });
         ref.find("#sideline-toggle-" + name).click(function () {
+            if (!is_screen_split) {
+                split_screen();
+            }
             let targets = document.getElementsByClassName("subplot-" + name);
             for (target of targets) {
                 if (target.style.display == "none") {
@@ -267,6 +282,10 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
                     $(this).find("i.fa-toggle-off").show();
                 }
             }
+            // if no cells are shown, reset screen to default view
+            if ($(".sideline-pinned:visible").length == 0) {
+                reset_screen();
+            }
         });
     };
 
@@ -274,27 +293,25 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
     var split_screen = function () {
         $("#notebook").css({ display: "flex" });
         $("#notebook-container").addClass("nb-container");
-        if ($("#sideline-container").length) {
-            show_sideline_container();
-        } else {
+        if (!$("#sideline-container").length) {
             insert_sideline_container();
         }
+        // show the container
+        $("#sideline-container").show();
+        // jupyter action button icon to "fa-eye"
+        $('div.btn-group button[data-jupyter-action="sideline:hide_container"] i.fa').removeClass("fa-eye-slash").addClass("fa-eye");
         is_screen_split = true;
     };
 
     // reset the layout to the default
-    var reset_nb_width = function () {
+    var reset_screen = function () {
         $("#notebook").css({ display: "" });
         $("#notebook-container").removeClass("nb-container");
-        hide_sideline_container();
+        // hide the container
+        $("#sideline-container").hide();
+        // jupyter action button icon to "fa-eye-slash"
+        $('div.btn-group button[data-jupyter-action="sideline:hide_container"] i.fa').removeClass("fa-eye").addClass("fa-eye-slash");
         is_screen_split = false;
-    };
-
-    // reset layout if no cells remain pinned
-    var check_if_any_pinned = function () {
-        if ($(".sideline-pinned").length == 0) {
-            reset_nb_width();
-        }
     };
 
     // get height of the header to align items below
@@ -311,12 +328,24 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
         });
     };
 
-    var hide_sideline_container = function () {
-        $("#sideline-container").hide();
+    var hide_all_subplots = function () {
+        if (is_screen_split) {
+            reset_screen();
+        }
+        // hide all subplots, buttons to off
+        $(".sideline-pinned").hide();
+        $("button").find("i.fa-toggle-on").hide();
+        $("button").find("i.fa-toggle-off").show();
     };
 
-    var show_sideline_container = function () {
-        $("#sideline-container").show();
+    var show_all_subplots = function () {
+        if (!is_screen_split) {
+            split_screen();
+        }
+        // show all subplots, buttons to on
+        $(".sideline-pinned").show();
+        $("button").find("i.fa-toggle-on").show();
+        $("button").find("i.fa-toggle-off").hide();
     };
 
     var observer;
@@ -326,7 +355,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
     var setup = function () {
         pin_tagged_cells();
 
-        // save the tags of the two most recently selected subplots
+        // save the tags of the most recently selected subplot
         // need to listen to all nodes to register a cell coming into the container while already being selected
         //      -> cannot limit to #sideline-container
         var target = document.querySelector("#notebook");
@@ -410,22 +439,19 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
             jq_ref.removeAttr("id");
             jq_ref.find(".remove-tag-btn").click();
 
-            check_if_any_pinned();
+            // reset layout to default view if no more cells are pinned
+            if ($(".sideline-pinned").length == 0) {
+                reset_screen();
+            }
         }
     };
 
     // toggle visibility of sideline and toggle layout
     var hide_container_handler = function () {
         if ($("#sideline-container").css("display") == "none") {
-            split_screen();
-            show_sideline_container();
-            // jupyter action button icon to "fa-eye"
-            $('div.btn-group button[data-jupyter-action="sideline:hide_container"] i.fa').removeClass("fa-eye-slash").addClass("fa-eye");
+            show_all_subplots();
         } else {
-            hide_sideline_container();
-            reset_nb_width();
-            // jupyter action button icon to "fa-eye-slash"
-            $('div.btn-group button[data-jupyter-action="sideline:hide_container"] i.fa').removeClass("fa-eye").addClass("fa-eye-slash");
+            hide_all_subplots();
         }
     };
 
@@ -469,9 +495,9 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
         //};
 
         var prefix = "sideline";
-        var pin_action_name = Jupyter.actions.register(pin_action, "pin cell", prefix);
-        var unpin_action_name = Jupyter.actions.register(unpin_action, "unpin cell", prefix);
-        var hide_container_action_name = Jupyter.actions.register(hide_container_action, "hide container", prefix);
+        var pin_action_name = Jupyter.actions.register(pin_action, "pin", prefix);
+        var unpin_action_name = Jupyter.actions.register(unpin_action, "unpin", prefix);
+        var hide_container_action_name = Jupyter.actions.register(hide_container_action, "hide_container", prefix);
         //var reload_action_name = Jupyter.actions.register(reload_action, "reload", prefix);
         Jupyter.toolbar.add_buttons_group([
             pin_action_name,

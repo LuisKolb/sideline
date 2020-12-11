@@ -5,6 +5,7 @@ Focus on the narrative you want to tell and show code for data cleaning, explora
 
 Installation
 -----
+To install the extension, execute the following instructions:  
 
 `jupyter nbextension install path/to/sideline`  
 `jupyter nbextension enable sideline/sideline`  
