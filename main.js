@@ -456,9 +456,9 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
     };
 
     // toggle visibility of sideline and toggle layout
-    //var reload_handler = function () {
-    //    setup();
-    //};
+    var reload_handler = function () {
+        setup();
+    };
 
     // load the extension
     var initialize = function () {
@@ -487,23 +487,23 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
             handler: hide_container_handler,
         };
 
-        //var reload_action = {
-        //    icon: "fa-retweet",
-        //    help: "Reload Sideline",
-        //    help_index: "zz",
-        //    handler: reload_handler,
-        //};
+        var reload_action = {
+            icon: "fa-retweet",
+            help: "Reload Sideline",
+            help_index: "zz",
+            handler: reload_handler,
+        };
 
         var prefix = "sideline";
         var pin_action_name = Jupyter.actions.register(pin_action, "pin", prefix);
         var unpin_action_name = Jupyter.actions.register(unpin_action, "unpin", prefix);
         var hide_container_action_name = Jupyter.actions.register(hide_container_action, "hide_container", prefix);
-        //var reload_action_name = Jupyter.actions.register(reload_action, "reload", prefix);
+        var reload_action_name = Jupyter.actions.register(reload_action, "reload", prefix);
         Jupyter.toolbar.add_buttons_group([
             pin_action_name,
             unpin_action_name,
             hide_container_action_name,
-            //reload_action_name
+            reload_action_name
         ]);
     };
 
