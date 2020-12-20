@@ -353,8 +353,6 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
     // setup listeners
     var setup = function () {
-        pin_tagged_cells();
-
         // save the tags of the most recently selected subplot
         // need to listen to all nodes to register a cell coming into the container while already being selected
         //      -> cannot limit to #sideline-container
@@ -401,6 +399,8 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
         $(window).resize(function () {
             if (is_screen_split) split_screen();
         });
+
+        pin_tagged_cells();	
     };
 
     /* jupyter action handlers */
