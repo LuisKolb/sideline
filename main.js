@@ -147,7 +147,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
     // return the first found sideline tag (only the tag string)
     var get_sideline_tag = function (cell) {
-        if (cell.metadata.tags) {
+        if (cell.metadata && cell.metadata.tags) {
             for (tag of cell.metadata.tags) {
                 if (tag.startsWith("subplot-")) {
                     return tag.split("-")[1];
@@ -249,7 +249,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
             if (!is_screen_split) {
                 split_screen();
             }
-            // if subplots are hidden, show them before proceeding 
+            // if subplots are hidden, show them before proceeding
             for (target of targets) {
                 if (target.style.display == "none") {
                     target.removeAttribute("style"); // entirely remove style attribute when toggled visible
@@ -350,6 +350,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
     var observer;
     var current = "";
+    var mostRecentCell;
 
     // setup listeners
     var setup = function () {
@@ -368,6 +369,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
                                     current = mutation.target.classList[i];
                                 }
                             }
+                            mostRecentCell = Jupyter.notebook.get_selected_cell();
                         }
                         break;
                 }
@@ -381,17 +383,23 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
         observer = new MutationObserver(selection_callback); // instanciate the mutationObserver
         if (target) observer.observe(target, config); // start the observer
-        //observer.disconnect();
 
         // event listener to add tag inserted cells
         Jupyter.notebook.events.on("create.Cell", function (event, data) {
             var cellObj = Jupyter.notebook.get_cell_element(data.index);
+
             // only add metadata if the element is "pinned"
             if (cellObj.parent("#sideline-container").length > 0) {
-                var tag_container = cellObj.find(".tag-container");
-                add_tag(data.cell, current, tag_container, remove_tag(data.cell, tag_container));
-                cellObj.addClass("sideline-pinned");
-                cellObj.addClass(current);
+                if (get_sideline_tag(mostRecentCell)) {
+                    var tag_container = cellObj.find(".tag-container");
+                    add_tag(data.cell, current, tag_container, remove_tag(data.cell, tag_container));
+                    cellObj.addClass("sideline-pinned");
+                    cellObj.addClass(current);
+                } else {
+                    // if most recent cell is not a subplot, but the parent after insertion is the subplot container
+                    // we hit the edge case of insertion at the bottom, so move the cell accordingly
+                    cellObj.insertBefore("#sideline-container")
+                }
             }
         });
 
@@ -400,7 +408,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
             if (is_screen_split) split_screen();
         });
 
-        pin_tagged_cells();	
+        pin_tagged_cells();
     };
 
     /* jupyter action handlers */
@@ -499,12 +507,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
         var unpin_action_name = Jupyter.actions.register(unpin_action, "unpin", prefix);
         var hide_container_action_name = Jupyter.actions.register(hide_container_action, "hide_container", prefix);
         var reload_action_name = Jupyter.actions.register(reload_action, "reload", prefix);
-        Jupyter.toolbar.add_buttons_group([
-            pin_action_name,
-            unpin_action_name,
-            hide_container_action_name,
-            reload_action_name
-        ]);
+        Jupyter.toolbar.add_buttons_group([pin_action_name, unpin_action_name, hide_container_action_name, reload_action_name]);
     };
 
     var load_ipython_extension = function () {
