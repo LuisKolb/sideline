@@ -196,6 +196,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
                     .last()
                     .after(cellObj);
             } else {
+                $("#sideline-container").append("<div id='subplot-header-" + name + "' class='subplot-" + name + " sl-header'><h4>subplot " + name + "</h4></div>");
                 $("#sideline-container").append(cellObj);
             }
 
@@ -232,6 +233,9 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
                 cellObj.addClass("sideline-pinned");
                 cellObj.addClass("subplot-" + highest_pindex);
                 $("#sideline-container").append(cellObj);
+
+                // add header cell
+                cellObj.before("<div id='subplot-header-" + highest_pindex + "' class='subplot-" + highest_pindex + " sl-header'><h4>subplot " + highest_pindex + "</h4></div>");
 
                 // scroll to the cell that was just pinned
                 document.getElementsByClassName("subplot-" + highest_pindex)[0].scrollIntoView();
@@ -349,11 +353,15 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
     };
 
     var observer;
-    var current = "";
+    var current = ""; // last selected subplot name
     var mostRecentCell;
 
     // setup listeners
     var setup = function () {
+        // reset global vars
+        is_screen_split = false;
+        highest_pindex = 1;
+
         // save the tags of the most recently selected subplot
         // need to listen to all nodes to register a cell coming into the container while already being selected
         //      -> cannot limit to #sideline-container
@@ -388,17 +396,26 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
         Jupyter.notebook.events.on("create.Cell", function (event, data) {
             var cellObj = Jupyter.notebook.get_cell_element(data.index);
 
-            // only add metadata if the element is "pinned"
+            // only add metadata if the element is inside the container
             if (cellObj.parent("#sideline-container").length > 0) {
                 if (get_sideline_tag(mostRecentCell)) {
+                    // only add metadata if the most recent selected cell was a subplot
                     var tag_container = cellObj.find(".tag-container");
                     add_tag(data.cell, current, tag_container, remove_tag(data.cell, tag_container));
                     cellObj.addClass("sideline-pinned");
                     cellObj.addClass(current);
+
+                    // in the case of insert_cell_below the new cell will be inserted at get_cell(index).before(newCell) ->
+                    // would be inserted before the next subplot, which is AFTER the next subplot's header ->
+                    // we have to swap the header and the new cellObj
+                    if (!cellObj.prev().hasClass(current)) {
+                        var siblingHeader = cellObj.prev();
+                        cellObj.after(siblingHeader);
+                    }
                 } else {
-                    // if most recent cell is not a subplot, but the parent after insertion is the subplot container
+                    // if most recent cell is not a subplot, but the parent after insertion is the subplot container ->
                     // we hit the edge case of insertion at the bottom, so move the cell accordingly
-                    cellObj.insertBefore("#sideline-container")
+                    $("#sideline-container").before(cellObj);
                 }
             }
         });
@@ -424,28 +441,38 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
         pin_new_cell(Jupyter.notebook.get_selected_cell());
     };
 
-    // unpin selected cell, remove markers and tage as well as referencing "link"-cells
+    // unpin selected cell, remove markers and tags as well as referencing "link"-cells
     var unpin_handler = function () {
         var cell = Jupyter.notebook.get_selected_cell();
         var jq_ref = Jupyter.notebook.get_cell_element(Jupyter.notebook.find_cell_index(cell));
 
-        // only unpin if the element is "pinned"
+        // only unpin if the selected element is inside the sl-container
         if (jq_ref.parent("#sideline-container").length > 0) {
             var name = get_sideline_tag(cell);
-            // insert after first found
-            var ref_link = $("#sideline-toggle-" + name);
-            if (ref_link.length > 0) {
-                ref_link.first().parent().parent().after(jq_ref);
-                ref_link.parent().parent().remove();
-            } else {
-                // if no link is found, append at end of nb
-                $("#sideline-container").before(jq_ref);
-            }
+            var ref_link = $("#sideline-toggle-" + name)
+                .first()
+                .parent()
+                .parent(); // the first found/valid linking cell
+                
+            $(".subplot-" + name).each(function(index) {
+                if ($(this).hasClass("sl-header")) {
+                    $(this).remove();
+                } else {
+                    if (ref_link.length > 0) {
+                        ref_link.before(this);
+                    } else {
+                        // if no link is found, append at end of nb
+                        $("#sideline-container").before(this);
+                    }
 
-            // remove sideline markers and metadata
-            jq_ref.removeClass("sideline-pinned");
-            jq_ref.removeAttr("id");
-            jq_ref.find(".remove-tag-btn").click();
+                    // remove sideline markers and metadata
+                    $(this).removeClass("sideline-pinned");
+                    $(this).removeAttr("id");
+                    $(this).find(".remove-tag-btn").click();
+                }
+            });
+
+            ref_link.remove();
 
             // reset layout to default view if no more cells are pinned
             if ($(".sideline-pinned").length == 0) {
