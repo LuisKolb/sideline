@@ -8,8 +8,8 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
         var link = $("<link/>");
         $("head").append(link);
         link.attr("href", requirejs.toUrl("./" + arg + ".css"))
-            .attr("rel", "stylesheet")
-            .attr("type", "text/css");
+        .attr("rel", "stylesheet")
+        .attr("type", "text/css");
     };
 
     /* functions copied from tags.js in the Jupyter Notebook Github repository */
@@ -19,18 +19,19 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
         if (is_editable) {
             var remove_button = $("<i/>")
-                .addClass("remove-tag-btn")
-                .addClass("fa fa-times")
-                .click(function () {
-                    on_remove(name);
-                    return false;
-                });
+            .addClass("remove-tag-btn")
+            .addClass("fa fa-times")
+            .click(function () {
+                on_remove(name);
+                return false;
+            });
             tag_UI.append(remove_button);
         }
         return tag_UI;
     };
 
     var write_tag = function (cell, name, add) {
+
         if (add) {
             // Add to metadata
             if (cell.metadata.tags === undefined) {
@@ -88,8 +89,124 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
             var tag_map = jQuery.data(tag_container, "tag_map") || {};
             tag_map[name] = tag;
             jQuery.data(tag_container, "tag_map", tag_map);
+            console.log(cell.metadata)
         }
     };
+
+    /* overwrite cell pasting functions */
+
+    /**
+     * Replace the selected cell with the cells in the clipboard.
+     */
+    Jupyter.Notebook.prototype.paste_cell_replace = function () {
+
+        if (!(this.clipboard !== null && this.paste_enabled)) {
+            return;
+        }
+
+        var selected =  this.get_selected_cells_indices();
+        var insertion_index = selected[0];
+        this.delete_cells(selected);
+
+        for (var i=this.clipboard.length-1; i >= 0; i--) {
+            var cell_data = this.clipboard[i];
+            var new_cell = this.insert_cell_at_index(cell_data.cell_type, insertion_index);
+            new_cell.fromJSON(cell_data);
+
+            // sideline custom logic for metadata & classes
+            sideline_after_insert(new_cell)
+        
+        }
+
+        this.select(insertion_index+this.clipboard.length-1);
+    };
+
+    /**
+     * Paste cells from the clipboard above the selected cell.
+     */
+    Jupyter.Notebook.prototype.paste_cell_above = function () {
+        if (this.clipboard !== null && this.paste_enabled) {
+            var first_inserted = null;
+            for (var i=0; i < this.clipboard.length; i++) {
+                var cell_data = this.clipboard[i];
+                var new_cell = this.insert_cell_above(cell_data.cell_type);
+                new_cell.fromJSON(cell_data);
+                
+                // sideline custom logic for metadata & classes
+                sideline_after_insert(new_cell)
+                
+                if (first_inserted === null) {
+                    first_inserted = new_cell;
+                }
+            }
+            first_inserted.focus_cell();
+        }
+    };
+
+    /**
+     * Paste cells from the clipboard below the selected cell.
+     */
+    Jupyter.Notebook.prototype.paste_cell_below = function () {
+        if (this.clipboard !== null && this.paste_enabled) {
+            var first_inserted = null;
+            for (var i = this.clipboard.length-1; i >= 0; i--) {
+                var cell_data = this.clipboard[i];
+                var new_cell = this.insert_cell_below(cell_data.cell_type);
+                new_cell.fromJSON(cell_data);
+
+                // sideline custom logic for metadata & classes
+                sideline_after_insert(new_cell)
+                
+                if (first_inserted === null) {
+                    first_inserted = new_cell;
+                }
+            }
+            first_inserted.focus_cell();
+        }
+    };
+
+    /* overwrite insert_element_at_index() */
+
+    /**
+     * Insert an element at given cell index.
+     *
+     * @param {HTMLElement} element - a cell element
+     * @param {integer}     [index] - a valid index where to inser cell
+     * @returns {boolean}   success
+     */
+    Jupyter.Notebook.prototype._insert_element_at_index = function(element, index){
+        if (element === undefined){
+            return false;
+        }
+
+        var ncells = this.ncells();
+
+        if (ncells === 0) {
+            // special case append if empty
+            this.container.append(element);
+        } else if ( ncells === index ) {
+            // special case append it the end, but not empty
+            this.get_cell_element(index-1).after(element);
+        } else if (this.is_valid_cell_index(index)) {
+            // otherwise always somewhere to append to
+            this.get_cell_element(index).before(element);
+        } else {
+            return false;
+        }
+        
+        this.undelete_backup_stack.map(function (undelete_backup) {
+            if (index < undelete_backup.index) {
+                undelete_backup.index += 1;
+            }
+        });
+
+        // sideline custom logic for metadata
+        sideline_after_insert(Jupyter.notebook.get_cell(index))
+        
+        this.set_dirty(true);
+        return true;
+    };
+
 
     /* overwrite execute_cells */
 
@@ -99,7 +216,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
      *
      * @param {Array} indices - indices of the cells to execute
      */
-    Jupyter.Notebook.prototype.execute_cells = function (indices) {
+     Jupyter.Notebook.prototype.execute_cells = function (indices) {
         console.log("[sideline] Custom Notebook.prototype.execute_cells() was called.");
 
         if (indices.length === 0) {
@@ -127,13 +244,11 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
                     if (subplots_already_executed.includes(index)) {
                         break;
                     } else {
-                        //console.log("executing subplot " + i);
                         this.get_cell(indices[index]).execute();
                         subplots_already_executed.push(index);
                     }
                 }
             } else if (!subplots_already_executed.includes(i)) {
-                //console.log("executing cell " + i);
                 cell.execute();
             }
         }
@@ -147,7 +262,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
     // return the first found sideline tag (only the tag string)
     var get_sideline_tag = function (cell) {
-        if (cell.metadata && cell.metadata.tags) {
+        if (cell && cell.metadata && cell.metadata.tags) {
             for (tag of cell.metadata.tags) {
                 if (tag.startsWith("subplot-")) {
                     return tag.split("-")[1];
@@ -193,8 +308,8 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
             // check if cell with id already exists, and pin below it to keep subplots together
             if ($(".subplot-" + name).length > 0) {
                 $(".subplot-" + name)
-                    .last()
-                    .after(cellObj);
+                .last()
+                .after(cellObj);
             } else {
                 $("#sideline-container").append("<div id='subplot-header-" + name + "' class='subplot-" + name + " sl-header'><h4>subplot " + name + "</h4></div>");
                 $("#sideline-container").append(cellObj);
@@ -371,15 +486,15 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
             mutations.forEach(function (mutation) {
                 switch (mutation.type) {
                     case "attributes":
-                        if (mutation.target.classList.contains("selected")) {
-                            for (let i = 0; i < mutation.target.classList.length; i++) {
-                                if (mutation.target.classList[i].startsWith("subplot-")) {
-                                    current = mutation.target.classList[i];
-                                }
+                    if (mutation.target.classList.contains("selected")) {
+                        for (let i = 0; i < mutation.target.classList.length; i++) {
+                            if (mutation.target.classList[i].startsWith("subplot-")) {
+                                current = mutation.target.classList[i];
                             }
-                            mostRecentCell = Jupyter.notebook.get_selected_cell();
                         }
-                        break;
+                        mostRecentCell = Jupyter.notebook.get_selected_cell();
+                    }
+                    break;
                 }
             });
         };
@@ -392,34 +507,6 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
         observer = new MutationObserver(selection_callback); // instanciate the mutationObserver
         if (target) observer.observe(target, config); // start the observer
 
-        // event listener to add tag inserted cells
-        Jupyter.notebook.events.on("create.Cell", function (event, data) {
-            var cellObj = Jupyter.notebook.get_cell_element(data.index);
-
-            // only add metadata if the element is inside the container
-            if (cellObj.parent("#sideline-container").length > 0) {
-                if (get_sideline_tag(mostRecentCell)) {
-                    // only add metadata if the most recent selected cell was a subplot
-                    var tag_container = cellObj.find(".tag-container");
-                    add_tag(data.cell, current, tag_container, remove_tag(data.cell, tag_container));
-                    cellObj.addClass("sideline-pinned");
-                    cellObj.addClass(current);
-
-                    // in the case of insert_cell_below the new cell will be inserted at get_cell(index).before(newCell) ->
-                    // would be inserted before the next subplot, which is AFTER the next subplot's header ->
-                    // we have to swap the header and the new cellObj
-                    if (!cellObj.prev().hasClass(current)) {
-                        var siblingHeader = cellObj.prev();
-                        cellObj.after(siblingHeader);
-                    }
-                } else {
-                    // if most recent cell is not a subplot, but the parent after insertion is the subplot container ->
-                    // we hit the edge case of insertion at the bottom, so move the cell accordingly
-                    $("#sideline-container").before(cellObj);
-                }
-            }
-        });
-
         // add a resize listener since jupyter will change some styles on resize
         $(window).resize(function () {
             if (is_screen_split) split_screen();
@@ -427,6 +514,37 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
         pin_tagged_cells();
     };
+
+    // manage metadata and classes for new cells inserted into the sideline-container
+    var sideline_after_insert = function(cell) {
+        var cell_elem = Jupyter.notebook.get_cell_element(Jupyter.notebook.find_cell_index(cell));
+
+        // only add metadata if the element is inside the container
+        if (cell_elem.parent("#sideline-container").length > 0) {
+            if (get_sideline_tag(mostRecentCell)) {
+
+                // only add metadata if the most recent selected cell was a subplot
+                var tag_container = cell_elem.find(".tag-container");
+                add_tag(cell, current, tag_container, remove_tag(cell, tag_container));
+                cell_elem.addClass("sideline-pinned");
+                cell_elem.addClass(current);
+
+
+                // in the case of insert_cell_below the new cell will be inserted at get_cell(index).before(newCell) ->
+                // would be inserted before the next subplot, which is AFTER the next subplot's header ->
+                // we have to swap the header and the new cell_elem
+                if (!cell_elem.prev().hasClass(current)) {
+                    var siblingHeader = cell_elem.prev();
+                    cell_elem.after(siblingHeader);
+                }
+
+            } else {
+                // if most recent cell is not a subplot, but the parent after insertion is the subplot container ->
+                // we hit the edge case of insertion at the bottom of the main narrative, so move the cell accordingly
+                $("#sideline-container").before(cell_elem);
+            }
+        }
+    }
 
     /* jupyter action handlers */
 
@@ -444,34 +562,53 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
     // unpin selected cell, remove markers and tags as well as referencing "link"-cells
     var unpin_handler = function () {
         var cell = Jupyter.notebook.get_selected_cell();
-        var jq_ref = Jupyter.notebook.get_cell_element(Jupyter.notebook.find_cell_index(cell));
+        var jq_cell = Jupyter.notebook.get_cell_element(Jupyter.notebook.find_cell_index(cell));
 
         // only unpin if the selected element is inside the sl-container
-        if (jq_ref.parent("#sideline-container").length > 0) {
+        if (jq_cell.parent("#sideline-container").length > 0) {
             var name = get_sideline_tag(cell);
-            var ref_link = $("#sideline-toggle-" + name)
-                .first()
-                .parent()
-                .parent(); // the first found/valid linking cell
-                
-            $(".subplot-" + name).each(function(index) {
-                if ($(this).hasClass("sl-header")) {
-                    $(this).remove();
-                } else {
-                    if (ref_link.length > 0) {
-                        ref_link.before(this);
-                    } else {
-                        // if no link is found, append at end of nb
-                        $("#sideline-container").before(this);
-                    }
+            var whole_tag = "subplot-"+name
 
-                    // remove sideline markers and metadata
-                    $(this).removeClass("sideline-pinned");
-                    $(this).removeAttr("id");
-                    $(this).find(".remove-tag-btn").click();
+            // iterate through all cells to get references to the cell elements
+            var cells = [];
+            var i = 0;
+            while (i<=Jupyter.notebook.ncells()) {
+                if (get_sideline_tag(Jupyter.notebook.get_cell(i)) == name) {
+                    cells.push(Jupyter.notebook.get_cell(i))
                 }
-            });
+                i++;
+            }
 
+            // the first found/valid linking cells
+            var ref_link = $("#sideline-toggle-" + name)
+            .first()
+            .parent()
+            .parent();
+
+            cells.forEach(elem => {
+
+                jq_ref = Jupyter.notebook.get_cell_element(Jupyter.notebook.find_cell_index(elem));
+
+                if (ref_link.length > 0) {
+                    ref_link.before(jq_ref);
+                } else {
+                    // if no link is found, append at end of nb
+                    $("#sideline-container").before(jq_ref);
+                }
+
+                // remove sideline markers and metadata
+                jq_ref.removeClass("sideline-pinned");
+                jq_ref.removeClass(whole_tag);
+                write_tag(elem, whole_tag, false); 
+            })
+
+            // manually remove the tag in case cellToolbar is open  
+            if($('.cell-tag:contains("'+whole_tag+'")').length > 0) {
+                $('.cell-tag:contains("'+whole_tag+'")').remove();
+            }
+
+            
+            $('.sl-header.subplot-'+name).remove();
             ref_link.remove();
 
             // reset layout to default view if no more cells are pinned
@@ -490,7 +627,6 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
         }
     };
 
-    // toggle visibility of sideline and toggle layout
     var reload_handler = function () {
         setup();
     };
