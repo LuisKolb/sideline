@@ -6,7 +6,7 @@ Focus on the narrative you want to tell and show code for data cleaning, explora
 Installation
 -----
 
-The easiest method of trying out the extension is probably using Docker. Get the image from [DockerHub](https://hub.docker.com/repository/docker/luiskolb/sideline). Running the image will start a Notebook server on your local machine, which comes with sideline preinstalled (and many other packages, as it is based on the [jupyter/scipy-notebook image](https://jupyter-docker-stacks.readthedocs.io/en/latest/using/selecting.html#jupyter-datascience-notebook)!  
+The easiest method of trying out the extension is probably using Docker. Get the image from [DockerHub](https://hub.docker.com/repository/docker/luiskolb/sideline). Running the image will start a Notebook server on your local machine, which comes with sideline preinstalled (and many other packages, as it is based on the [jupyter/scipy-notebook image](https://jupyter-docker-stacks.readthedocs.io/en/latest/using/selecting.html#jupyter-datascience-notebook))!  
 
 You can also install the extension manually:  
 
