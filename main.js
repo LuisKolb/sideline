@@ -311,7 +311,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
                 .last()
                 .after(cellObj);
             } else {
-                $("#sideline-container").append("<div id='subplot-header-" + name + "' class='subplot-" + name + " sl-header'><h4>subplot " + name + "</h4></div>");
+                $("#sideline-container").append("<div id='subplot-header-" + name + "' class='subplot-" + name + " sl-header'><div class='sl-divider'></div></div>");
                 $("#sideline-container").append(cellObj);
             }
 
@@ -350,7 +350,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
                 $("#sideline-container").append(cellObj);
 
                 // add header cell
-                cellObj.before("<div id='subplot-header-" + highest_pindex + "' class='subplot-" + highest_pindex + " sl-header'><h4>subplot " + highest_pindex + "</h4></div>");
+                cellObj.before("<div id='subplot-header-" + highest_pindex + "' class='subplot-" + highest_pindex + " sl-header'><div class='sl-divider'></div></div>");
 
                 // scroll to the cell that was just pinned
                 document.getElementsByClassName("subplot-" + highest_pindex)[0].scrollIntoView();
@@ -639,14 +639,14 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
         var pin_action = {
             icon: "fa-thumb-tack",
-            help: "Pin Cell to Sideline",
+            help: "Create Subplot with the selected Cell",
             help_index: "zz",
             handler: pin_handler,
         };
 
         var unpin_action = {
             icon: "fa-ban",
-            help: "Unpin selected Cell",
+            help: "Unpin selected Subplot",
             help_index: "zz",
             handler: unpin_handler,
         };

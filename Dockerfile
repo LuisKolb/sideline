@@ -1,4 +1,4 @@
-FROM jupyter/datascience-notebook
+FROM jupyter/scipy-notebook
 WORKDIR /home/sideline
 COPY . .
 RUN jupyter nbextension install . --user
