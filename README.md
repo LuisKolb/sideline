@@ -6,7 +6,9 @@ Focus on the narrative you want to tell and show code for data cleaning, explora
 Installation
 -----
 
-The easiest method of trying out the extension is probably using Docker. Get the image from [DockerHub](https://hub.docker.com/repository/docker/luiskolb/sideline). Running the image will start a Notebook server on your local machine, which comes with sideline preinstalled (and many other packages, as it is based on the [jupyter/scipy-notebook image](https://jupyter-docker-stacks.readthedocs.io/en/latest/using/selecting.html#jupyter-datascience-notebook))!  
+The easiest method of trying out the extension is probably using Docker. Get the image from [DockerHub](https://hub.docker.com/repository/docker/luiskolb/sideline) with `docker pull luiskolb/sideline`. Running the image will start a Notebook server on your local machine, which comes with sideline preinstalled (and many other packages, as it is based on the [jupyter/scipy-notebook image](https://jupyter-docker-stacks.readthedocs.io/en/latest/using/selecting.html#jupyter-datascience-notebook))!  
+IMPORTANT: run the docker image with this command `docker run -p 8888:8888 luiskolb/sideline` to specify port mapping, or you would not be able to access the server from your browser (which runs outside of the container on your local machine). If you are somewhat experienced with docker, you can set up volumes when running the container to access files outside of the container. In any case, there is a demo folder with a notebook provided that showcases most features of sideline (currently work-in-progress). Chances are though, if you want to acutally work with the extension you should read on and install it in your local Jupyter installation.  
+
 
 You can also install the extension manually:  
 
