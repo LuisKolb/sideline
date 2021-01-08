@@ -452,7 +452,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
             reset_screen();
         }
         // hide all subplots, buttons to off
-        $(".sideline-pinned").hide();
+        $("[class|='subplot']").hide();
         $("button").find("i.fa-toggle-on").hide();
         $("button").find("i.fa-toggle-off").show();
     };
@@ -462,7 +462,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
             split_screen();
         }
         // show all subplots, buttons to on
-        $(".sideline-pinned").show();
+        $("[class|='subplot']").show();
         $("button").find("i.fa-toggle-on").show();
         $("button").find("i.fa-toggle-off").hide();
     };
