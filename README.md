@@ -35,3 +35,8 @@ Four Buttons are added by this extension:
 🔁 reload sideline - reload the layout and styling, useful when manually editing components/metadata/etc. of sideline  
 
 You can also manually manipulate a cells' tags using the Cell Toolbar for tags. This is a standard feature of Jupyter Notebook, you can find it at View > Cell Toolbar > Tags. 
+
+Help
+-----
+
+If you are looking for help regarding this extension, shoot me a message on kolb.luis (at) gmail.com!
