@@ -12,6 +12,29 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
             .attr("type", "text/css");
     };
 
+    /* user behaviour logging for analysis */
+
+    var gcpUrl = "http://34.89.133.170:8080/receive-"; // vm url harcoded
+
+    // things the extension keeps track of
+
+    var log_action = function (userAction) {
+        var userHash = window.location.pathname.split("-").pop().split("/")[0];
+        try {
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", gcpUrl + userHash, true);
+            xhr.setRequestHeader("Content-Type", "application/json");
+            xhr.send(
+                JSON.stringify({
+                    timestamp: new Date(),
+                    action: userAction,
+                })
+            );
+        } catch (error) {
+            console.log("Error logging activity '" + userAction + "'. This version is made specifically for Binder to log participant's interactions with the extension.");
+        }
+    };
+
     /* functions copied from tags.js in the Jupyter Notebook Github repository */
 
     var make_tag = function (name, on_remove, is_editable) {
@@ -88,7 +111,6 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
             var tag_map = jQuery.data(tag_container, "tag_map") || {};
             tag_map[name] = tag;
             jQuery.data(tag_container, "tag_map", tag_map);
-            console.log(cell.metadata);
         }
     };
 
@@ -206,15 +228,14 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
     /* overwrite text cell execution functions */
 
-    Jupyter.MarkdownCell.prototype.execute = function() {
-
+    Jupyter.MarkdownCell.prototype.execute = function () {
         // custom logic: if link-cell -> find all subplot indices and execute them first
         let line = this.code_mirror.getLine(0);
         if (line.startsWith("sideline - link to subplot ")) {
             var name = line.split("sideline - link to subplot ")[1];
             var subplots_to_execute = [];
 
-            console.log('[sideline] Executing subplot ' + name + ' from referencing cell.');
+            console.log("[sideline] Executing subplot " + name + " from referencing cell.");
 
             for (var i = 0; i < Jupyter.notebook.ncells(); i++) {
                 if (get_sideline_tag(Jupyter.notebook.get_cell(i)) == name) {
@@ -224,11 +245,11 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
             for (index of subplots_to_execute) {
                 Jupyter.notebook.get_cell(index).execute();
-            } 
+            }
         }
 
         this.render();
-    }
+    };
 
     /* custom tag functions */
 
@@ -484,6 +505,18 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
             if (is_screen_split) split_screen();
         });
 
+        window.onload = function (e) {
+            log_action("user started the session");
+
+            return undefined;
+        };
+
+        window.onbeforeunload = function (e) {
+            log_action("user left the page");
+
+            return; // return undefined to prevent confirmation dialog
+        };
+
         pin_tagged_cells();
     };
 
@@ -523,6 +556,8 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
         if (!is_screen_split) {
             split_screen();
         }
+
+        log_action("pin cell");
 
         // for all selected cells, pin them to the side
         pin_new_cell(Jupyter.notebook.get_selected_cell());
