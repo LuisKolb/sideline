@@ -88,7 +88,6 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
             var tag_map = jQuery.data(tag_container, "tag_map") || {};
             tag_map[name] = tag;
             jQuery.data(tag_container, "tag_map", tag_map);
-            console.log(cell.metadata);
         }
     };
 
