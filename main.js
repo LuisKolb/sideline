@@ -14,7 +14,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
     /* user behaviour logging for analysis */
 
-    var gcpUrl = "http://34.89.133.170:8080/receive-"; // vm url harcoded
+    var gcpUrl = "https://us-central1-sideline-302116.cloudfunctions.net/addLogLine"; // vm url harcoded
 
     // things the extension keeps track of
 
@@ -22,13 +22,10 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
         var userHash = window.location.pathname.split("-").pop().split("/")[0];
         try {
             var xhr = new XMLHttpRequest();
-            xhr.open("POST", gcpUrl + userHash, true);
-            xhr.setRequestHeader("Content-Type", "application/json");
+            xhr.open("POST", gcpUrl, true);
+            xhr.setRequestHeader("Content-Type", "text/plain");
             xhr.send(
-                JSON.stringify({
-                    timestamp: new Date(),
-                    action: userAction,
-                })
+                userHash + ',' + userAction
             );
         } catch (error) {
             console.log("Error logging activity '" + userAction + "'. This version is made specifically for Binder to log participant's interactions with the extension.");
