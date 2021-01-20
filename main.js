@@ -14,21 +14,32 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
     /* user behaviour logging for analysis */
 
-    var gcpUrl = "https://us-central1-sideline-302116.cloudfunctions.net/addLogLine"; // vm url harcoded
+    var gcpUrl = "https://us-central1-sideline-302116.cloudfunctions.net/"; // vm url harcoded
 
     // things the extension keeps track of
+    // todo
 
     var log_action = function (userAction) {
         var userHash = window.location.pathname.split("-").pop().split("/")[0];
         try {
             var xhr = new XMLHttpRequest();
-            xhr.open("POST", gcpUrl, true);
+            xhr.open("POST", gcpUrl + "addLogLine", true);
             xhr.setRequestHeader("Content-Type", "text/plain");
-            xhr.send(
-                userHash + ',' + userAction
-            );
+            xhr.send(userHash + "," + userAction);
         } catch (error) {
-            console.log("Error logging activity '" + userAction + "'. This version is made specifically for Binder to log participant's interactions with the extension.");
+            console.log("Error logging activity '" + userAction + "'. This version of is made specifically for Binder to log participant's interactions with the extension.");
+        }
+    };
+
+    var nb_json_to_firestore = function () {
+        var userHash = window.location.pathname.split("-").pop().split("/")[0];
+        try {
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", gcpUrl + "addNotebookJSON", true);
+            xhr.setRequestHeader("Content-Type", "text/plain");
+            xhr.send(userHash + "," + JSON.stringify(Jupyter.notebook.toJSON()));
+        } catch (error) {
+            console.log("Error sending notebook string to Firestore. This version is made specifically for Binder to log participant's interactions with the extension.");
         }
     };
 
@@ -321,6 +332,8 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
         if (cell.cell_type != "markdown" || !cell.code_mirror.getLine(0).includes("sideline")) {
             let cellObj = Jupyter.notebook.get_cell_element(Jupyter.notebook.find_cell_index(cell));
             if (!cellObj.hasClass("sideline-pinned")) {
+                log_action("create new subplot: " + highest_pindex);
+
                 // insert a markdown-cell above the selected cell, and set its value
                 var md_reference_cell = Jupyter.notebook.insert_cell_above("markdown");
                 md_reference_cell.unrender();
@@ -374,6 +387,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
                 if (count >= 3) clearInterval(x);
                 count++;
             }, 500);
+            log_action("scroll to subplot: " + name);
         });
         ref.find("#sideline-toggle-" + name).click(function () {
             if (!is_screen_split) {
@@ -395,6 +409,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
             if ($(".sideline-pinned:visible").length == 0) {
                 reset_screen();
             }
+            log_action("toggle subplot: " + name);
         });
     };
 
@@ -554,8 +569,6 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
             split_screen();
         }
 
-        log_action("pin cell");
-
         // for all selected cells, pin them to the side
         pin_new_cell(Jupyter.notebook.get_selected_cell());
     };
@@ -569,6 +582,8 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
         if (jq_cell.parent("#sideline-container").length > 0) {
             var name = get_sideline_tag(cell);
             var whole_tag = "subplot-" + name;
+
+            log_action("unpin subplot: " + name);
 
             // iterate through all cells to get references to the cell elements
             var cells = [];
@@ -621,13 +636,21 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
     var hide_container_handler = function () {
         if ($("#sideline-container").css("display") == "none") {
             show_all_subplots();
+            log_action("show all cells");
         } else {
             hide_all_subplots();
+            log_action("hide all cells");
         }
     };
 
     var reload_handler = function () {
+        log_action("reload");
         setup();
+    };
+
+    var upload = function () {
+        log_action("upload");
+        nb_json_to_firestore();
     };
 
     // load the extension
@@ -664,12 +687,20 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
             handler: reload_handler,
         };
 
+        var upload_action = {
+            icon: "fa-upload",
+            help: "Reload Sideline",
+            help_index: "zz",
+            handler: upload,
+        };
+
         var prefix = "sideline";
         var pin_action_name = Jupyter.actions.register(pin_action, "pin", prefix);
         var unpin_action_name = Jupyter.actions.register(unpin_action, "unpin", prefix);
         var hide_container_action_name = Jupyter.actions.register(hide_container_action, "hide_container", prefix);
         var reload_action_name = Jupyter.actions.register(reload_action, "reload", prefix);
-        Jupyter.toolbar.add_buttons_group([pin_action_name, unpin_action_name, hide_container_action_name, reload_action_name]);
+        var upload_action_name = Jupyter.actions.register(upload_action, "upload", prefix);
+        Jupyter.toolbar.add_buttons_group([pin_action_name, unpin_action_name, hide_container_action_name, reload_action_name, upload_action_name]);
     };
 
     var load_ipython_extension = function () {
