@@ -204,6 +204,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
     };
 
     /* overwrite text cell execution functions */
+    var subplots_already_executed = [];
 
     Jupyter.MarkdownCell.prototype.execute = function() {
 
@@ -223,11 +224,39 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
             for (index of subplots_to_execute) {
                 Jupyter.notebook.get_cell(index).execute();
+                subplots_already_executed.push(index)
             } 
         }
 
         this.render();
     }
+
+    /* overwrite execute_cells */
+
+     /**
+     * Execute cells corresponding to the given indices.
+     *
+     * @param {Array} indices - indices of the cells to execute
+     */
+    Jupyter.Notebook.prototype.execute_cells = function (indices) {
+        if (indices.length === 0) {
+            return;
+        }
+
+        var cell;
+        subplots_already_executed = [];
+        for (var i = 0; i < indices.length; i++) {
+            cell = this.get_cell(indices[i]);
+            if (!subplots_already_executed.includes(i)) {
+                cell.execute();
+            }
+        }
+        subplots_already_executed = [];
+
+        this.select(indices[indices.length - 1]);
+        this.command_mode();
+        this.set_dirty(true);
+    };
 
     /* custom tag functions */
 
