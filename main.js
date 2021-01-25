@@ -14,18 +14,19 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
     /* user behaviour logging for analysis */
 
-    var gcpUrl = "https://us-central1-sideline-302116.cloudfunctions.net/"; // vm url harcoded
+    var gcpUrl = "https://us-central1-sideline-302116.cloudfunctions.net/"; // vm url harcoded    
 
     // things the extension keeps track of
     // todo
 
     var log_action = function (userAction) {
         var userHash = window.location.pathname.split("-").pop().split("/")[0];
+        var nbName = window.location.pathname.split("/").pop()
         try {
             var xhr = new XMLHttpRequest();
             xhr.open("POST", gcpUrl + "addLogLine", true);
             xhr.setRequestHeader("Content-Type", "text/plain");
-            xhr.send(userHash + "," + userAction);
+            xhr.send(userHash + "," + decodeURIComponent(nbName) + "," + userAction);
         } catch (error) {
             console.log("Error logging activity '" + userAction + "'. This version of is made specifically for Binder to log participant's interactions with the extension.");
         }
@@ -33,11 +34,12 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
     var nb_json_to_firestore = function () {
         var userHash = window.location.pathname.split("-").pop().split("/")[0];
+        var nbName = window.location.pathname.split("/").pop()
         try {
             var xhr = new XMLHttpRequest();
             xhr.open("POST", gcpUrl + "addNotebookJSON", true);
             xhr.setRequestHeader("Content-Type", "text/plain");
-            xhr.send(userHash + "," + JSON.stringify(Jupyter.notebook.toJSON()));
+            xhr.send(userHash + "," + decodeURIComponent(nbName) + "," + JSON.stringify(Jupyter.notebook.toJSON()));
         } catch (error) {
             console.log("Error sending notebook string to Firestore. This version is made specifically for Binder to log participant's interactions with the extension.");
         }
