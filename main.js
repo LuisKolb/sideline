@@ -14,14 +14,14 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
     /* user behaviour logging for analysis */
 
-    var gcpUrl = "https://us-central1-sideline-302116.cloudfunctions.net/"; // vm url harcoded    
+    var gcpUrl = "https://us-central1-sideline-302116.cloudfunctions.net/"; // vm url harcoded
 
     // things the extension keeps track of
     // todo
 
     var log_action = function (userAction) {
         var userHash = window.location.pathname.split("-").pop().split("/")[0];
-        var nbName = window.location.pathname.split("/").pop()
+        var nbName = window.location.pathname.split("/").pop();
         try {
             var xhr = new XMLHttpRequest();
             xhr.open("POST", gcpUrl + "addLogLine", true);
@@ -34,7 +34,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
     var nb_json_to_firestore = function () {
         var userHash = window.location.pathname.split("-").pop().split("/")[0];
-        var nbName = window.location.pathname.split("/").pop()
+        var nbName = window.location.pathname.split("/").pop();
         try {
             var xhr = new XMLHttpRequest();
             xhr.open("POST", gcpUrl + "addNotebookJSON", true);
@@ -517,6 +517,12 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
         // add a resize listener since jupyter will change some styles on resize
         $(window).resize(function () {
             if (is_screen_split) split_screen();
+        });
+
+        // add a listener when user navigtes to next task/clicks our specific link
+        $(".sideline-link-to-next").bind("click", () => {
+            console.log("user openend the link to " + $(".sideline-link-to-next").text());
+            log_action("user openend the link to " + $(".sideline-link-to-next").text());
         });
 
         window.onload = function (e) {
