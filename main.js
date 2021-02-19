@@ -15,9 +15,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
     /* user behaviour logging for analysis */
 
     var gcpUrl = "https://us-central1-sideline-302116.cloudfunctions.net/"; // vm url harcoded
-
-    // things the extension keeps track of
-    // todo
+    var postingNotebook = false;
 
     var log_action = function (userAction) {
         var userHash = window.location.pathname.split("-").pop().split("/")[0];
@@ -28,7 +26,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
             xhr.setRequestHeader("Content-Type", "text/plain");
             xhr.send(userHash + "," + decodeURIComponent(nbName) + "," + userAction);
         } catch (error) {
-            console.log("Error logging activity '" + userAction + "'. This version of is made specifically for Binder to log participant's interactions with the extension.");
+            console.log("Error logging activity '" + userAction + "'.");
         }
     };
 
@@ -36,12 +34,23 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
         var userHash = window.location.pathname.split("-").pop().split("/")[0];
         var nbName = window.location.pathname.split("/").pop();
         try {
-            var xhr = new XMLHttpRequest();
-            xhr.open("POST", gcpUrl + "addNotebookJSON", true);
-            xhr.setRequestHeader("Content-Type", "text/plain");
-            xhr.send(userHash + "," + decodeURIComponent(nbName) + "," + JSON.stringify(Jupyter.notebook.toJSON()));
+            postingNotebook = true;
+            $.ajax({
+                type: "POST",
+                url: gcpUrl + "addNotebookJSON",
+                contentType: "text/plain",
+                data: userHash + "," + decodeURIComponent(nbName) + "," + JSON.stringify(Jupyter.notebook.toJSON()),
+            })
+                .done(() => {
+                    postingNotebook = false;
+                    alert("Upload successful!");
+                })
+                .fail(function (xhr, textStatus, errorThrown) {
+                    postingNotebook = false;
+                    alert("Notebook upload failed. Error: " + errorThrown);
+                });
         } catch (error) {
-            console.log("Error sending notebook string to Firestore. This version is made specifically for Binder to log participant's interactions with the extension.");
+            console.log("Error sending notebook string to Firestore.");
         }
     };
 
@@ -480,6 +489,8 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
     // setup listeners
     var setup = function () {
+        console.log("[sideline] This version is made specifically for Binder to log participant's interactions with the extension.");
+
         // reset global vars
         is_screen_split = false;
         highest_pindex = 1;
@@ -521,7 +532,6 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
         // add a listener when user navigtes to next task/clicks our specific link
         $(".sideline-link-to-next").bind("click", () => {
-            console.log("user openend the link to " + $(".sideline-link-to-next").text());
             log_action("user openend the link to " + $(".sideline-link-to-next").text());
         });
 
@@ -533,7 +543,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
         window.onbeforeunload = function (e) {
             log_action("user left the page");
-
+            if (postingNotebook) return "Notebook uploading, please wait...";
             return; // return undefined to prevent confirmation dialog
         };
 
@@ -697,7 +707,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
         var upload_action = {
             icon: "fa-upload",
-            help: "Reload Sideline",
+            help: "Hand in the Notebook",
             help_index: "zz",
             handler: upload,
         };
