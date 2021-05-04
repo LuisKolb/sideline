@@ -96,7 +96,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
     /**
      * Replace the selected cell with the cells in the clipboard.
      */
-    Jupyter.Notebook.prototype.paste_cell_replace = function () {
+    require("notebook/js/notebook").Notebook.prototype.paste_cell_replace = function () {
         if (!(this.clipboard !== null && this.paste_enabled)) {
             return;
         }
@@ -120,7 +120,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
     /**
      * Paste cells from the clipboard above the selected cell.
      */
-    Jupyter.Notebook.prototype.paste_cell_above = function () {
+    require("notebook/js/notebook").Notebook.prototype.paste_cell_above = function () {
         if (this.clipboard !== null && this.paste_enabled) {
             var first_inserted = null;
             for (var i = 0; i < this.clipboard.length; i++) {
@@ -142,7 +142,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
     /**
      * Paste cells from the clipboard below the selected cell.
      */
-    Jupyter.Notebook.prototype.paste_cell_below = function () {
+    require("notebook/js/notebook").Notebook.prototype.paste_cell_below = function () {
         if (this.clipboard !== null && this.paste_enabled) {
             var first_inserted = null;
             for (var i = this.clipboard.length - 1; i >= 0; i--) {
@@ -170,7 +170,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
      * @param {integer}     [index] - a valid index where to inser cell
      * @returns {boolean}   success
      */
-    Jupyter.Notebook.prototype._insert_element_at_index = function (element, index) {
+    require("notebook/js/notebook").Notebook.prototype._insert_element_at_index = function (element, index) {
         if (element === undefined) {
             return false;
         }
@@ -206,15 +206,14 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
     /* overwrite text cell execution functions */
     var subplots_already_executed = [];
 
-    Jupyter.MarkdownCell.prototype.execute = function() {
-
+    require("notebook/js/textcell").MarkdownCell.prototype.execute = function () {
         // custom logic: if link-cell -> find all subplot indices and execute them first
         let line = this.code_mirror.getLine(0);
         if (line.startsWith("sideline - link to subplot ")) {
             var name = line.split("sideline - link to subplot ")[1];
             var subplots_to_execute = [];
 
-            console.log('[sideline] Executing subplot ' + name + ' from referencing cell.');
+            console.log("[sideline] Executing subplot " + name + " from referencing cell.");
 
             for (var i = 0; i < Jupyter.notebook.ncells(); i++) {
                 if (get_sideline_tag(Jupyter.notebook.get_cell(i)) == name) {
@@ -224,21 +223,21 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
             for (index of subplots_to_execute) {
                 Jupyter.notebook.get_cell(index).execute();
-                subplots_already_executed.push(index)
-            } 
+                subplots_already_executed.push(index);
+            }
         }
 
         this.render();
-    }
+    };
 
     /* overwrite execute_cells */
 
-     /**
+    /**
      * Execute cells corresponding to the given indices.
      *
      * @param {Array} indices - indices of the cells to execute
      */
-    Jupyter.Notebook.prototype.execute_cells = function (indices) {
+    require("notebook/js/notebook").Notebook.prototype.execute_cells = function (indices) {
         if (indices.length === 0) {
             return;
         }
