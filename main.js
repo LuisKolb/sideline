@@ -14,44 +14,42 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
     /* user behaviour logging for analysis */
 
-    var gcpUrl = "https://us-central1-sideline-302116.cloudfunctions.net/"; // vm url harcoded
     var postingNotebook = false;
+    var notebookName = $("#notebookName").text();
+    var userHash = window.location.pathname.split("-").pop().split("/")[0];
+    var gcpUrl = "https://us-central1-sideline-302116.cloudfunctions.net/"; // vm url harcoded
+    if (window.location.hostname === "localhost") {
+        // use firebase emulator if running on localhost
+        gcpUrl = "http://127.0.0.1:5001/sideline-302116/us-central1/";
+        console.log("[sideline] Using local firebase emulator for development.");
+    }
 
     var log_action = function (userAction) {
-        var userHash = window.location.pathname.split("-").pop().split("/")[0];
-        var nbName = window.location.pathname.split("/").pop();
-        try {
-            var xhr = new XMLHttpRequest();
-            xhr.open("POST", gcpUrl + "addLogLine", true);
-            xhr.setRequestHeader("Content-Type", "text/plain");
-            xhr.send(userHash + "," + decodeURIComponent(nbName) + "," + userAction);
-        } catch (error) {
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", gcpUrl + "addLogLine", true);
+        xhr.setRequestHeader("Content-Type", "text/plain");
+        xhr.onerror = function () {
             console.log("Error logging activity '" + userAction + "'.");
-        }
+        };
+        xhr.send(userHash + "," + decodeURIComponent(notebookName) + "," + userAction);
     };
 
     var nb_json_to_firestore = function () {
-        var userHash = window.location.pathname.split("-").pop().split("/")[0];
-        var nbName = window.location.pathname.split("/").pop();
-        try {
-            postingNotebook = true;
-            $.ajax({
-                type: "POST",
-                url: gcpUrl + "addNotebookJSON",
-                contentType: "text/plain",
-                data: userHash + "," + decodeURIComponent(nbName) + "," + JSON.stringify(Jupyter.notebook.toJSON()),
+        postingNotebook = true;
+        $.ajax({
+            type: "POST",
+            url: gcpUrl + "addNotebookJSON",
+            contentType: "text/plain",
+            data: userHash + "," + decodeURIComponent(notebookName) + "," + JSON.stringify(Jupyter.notebook.toJSON()),
+        })
+            .done(() => {
+                postingNotebook = false;
+                alert("Upload successful!");
             })
-                .done(() => {
-                    postingNotebook = false;
-                    alert("Upload successful!");
-                })
-                .fail(function (xhr, textStatus, errorThrown) {
-                    postingNotebook = false;
-                    alert("Notebook upload failed. Error: " + errorThrown);
-                });
-        } catch (error) {
-            console.log("Error sending notebook string to Firestore.");
-        }
+            .fail(function (xhr, textStatus, errorThrown) {
+                postingNotebook = false;
+                alert("Notebook upload failed:\n" + xhr.status + ": " + xhr.statusText);
+            });
     };
 
     /* functions copied from tags.js in the Jupyter Notebook Github repository */
@@ -138,7 +136,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
     /**
      * Replace the selected cell with the cells in the clipboard.
      */
-    Jupyter.Notebook.prototype.paste_cell_replace = function () {
+    require("notebook/js/notebook").Notebook.prototype.paste_cell_replace = function () {
         if (!(this.clipboard !== null && this.paste_enabled)) {
             return;
         }
@@ -162,7 +160,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
     /**
      * Paste cells from the clipboard above the selected cell.
      */
-    Jupyter.Notebook.prototype.paste_cell_above = function () {
+    require("notebook/js/notebook").Notebook.prototype.paste_cell_above = function () {
         if (this.clipboard !== null && this.paste_enabled) {
             var first_inserted = null;
             for (var i = 0; i < this.clipboard.length; i++) {
@@ -184,7 +182,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
     /**
      * Paste cells from the clipboard below the selected cell.
      */
-    Jupyter.Notebook.prototype.paste_cell_below = function () {
+    require("notebook/js/notebook").Notebook.prototype.paste_cell_below = function () {
         if (this.clipboard !== null && this.paste_enabled) {
             var first_inserted = null;
             for (var i = this.clipboard.length - 1; i >= 0; i--) {
@@ -212,7 +210,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
      * @param {integer}     [index] - a valid index where to inser cell
      * @returns {boolean}   success
      */
-    Jupyter.Notebook.prototype._insert_element_at_index = function (element, index) {
+    require("notebook/js/notebook").Notebook.prototype._insert_element_at_index = function (element, index) {
         if (element === undefined) {
             return false;
         }
@@ -247,7 +245,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
     /* overwrite text cell execution functions */
 
-    Jupyter.MarkdownCell.prototype.execute = function () {
+    require("notebook/js/textcell").MarkdownCell.prototype.execute = function () {
         // custom logic: if link-cell -> find all subplot indices and execute them first
         let line = this.code_mirror.getLine(0);
         if (line.startsWith("sideline - link to subplot ")) {
@@ -489,8 +487,6 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
     // setup listeners
     var setup = function () {
-        console.log("[sideline] This version is made specifically for Binder to log participant's interactions with the extension.");
-
         // reset global vars
         is_screen_split = false;
         highest_pindex = 1;
@@ -534,12 +530,6 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
         $(".sideline-link-to-next").bind("click", () => {
             log_action("user openend the link to " + $(".sideline-link-to-next").text());
         });
-
-        window.onload = function (e) {
-            log_action("user started the session");
-
-            return undefined;
-        };
 
         window.onbeforeunload = function (e) {
             log_action("user left the page");
@@ -675,7 +665,9 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
     var initialize = function () {
         console.log("[sideline] Loading sideline.css");
         load_css("sideline");
+        console.log("[sideline] This version is made specifically for Binder to log participant's interactions with the extension.");
         setup();
+        log_action("user started the session");
 
         var pin_action = {
             icon: "fa-thumb-tack",
