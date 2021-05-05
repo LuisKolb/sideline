@@ -244,6 +244,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
     };
 
     /* overwrite text cell execution functions */
+    var subplots_already_executed = [];
 
     require("notebook/js/textcell").MarkdownCell.prototype.execute = function () {
         // custom logic: if link-cell -> find all subplot indices and execute them first
@@ -262,10 +263,38 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
 
             for (index of subplots_to_execute) {
                 Jupyter.notebook.get_cell(index).execute();
+                subplots_already_executed.push(index);
             }
         }
 
         this.render();
+    };
+
+    /* overwrite execute_cells */
+
+    /**
+     * Execute cells corresponding to the given indices.
+     *
+     * @param {Array} indices - indices of the cells to execute
+     */
+    require("notebook/js/notebook").Notebook.prototype.execute_cells = function (indices) {
+        if (indices.length === 0) {
+            return;
+        }
+
+        var cell;
+        subplots_already_executed = [];
+        for (var i = 0; i < indices.length; i++) {
+            cell = this.get_cell(indices[i]);
+            if (!subplots_already_executed.includes(i)) {
+                cell.execute();
+            }
+        }
+        subplots_already_executed = [];
+
+        this.select(indices[indices.length - 1]);
+        this.command_mode();
+        this.set_dirty(true);
     };
 
     /* custom tag functions */
@@ -466,7 +495,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
             reset_screen();
         }
         // hide all subplots, buttons to off
-        $("[class|='subplot']").hide();
+        $("[class*='subplot']").hide();
         $("button").find("i.fa-toggle-on").hide();
         $("button").find("i.fa-toggle-off").show();
     };
@@ -476,7 +505,7 @@ define(["jquery", "base/js/namespace", "require"], function ($, Jupyter, require
             split_screen();
         }
         // show all subplots, buttons to on
-        $("[class|='subplot']").show();
+        $("[class*='subplot']").show()
         $("button").find("i.fa-toggle-on").show();
         $("button").find("i.fa-toggle-off").hide();
     };
